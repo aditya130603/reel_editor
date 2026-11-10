@@ -20,7 +20,11 @@ Self-hosted talking-head reel editor for **OpenClaw / Motion Graphics**. Pick a 
 
 **Not implemented yet:** manual timeline GUI, human transcript correction, face-aware reframing, full visual image-search B-roll, advanced automatic sound design, semantic scene understanding beyond basic optional text embeddings, project persistence across restarts, multi-user authentication, and Remotion effects. Actual reel and VPS deployment checks are still required; the code is not a production-certified clone of Captions. Kokoro is available for later voiceover functionality but is not needed for this pipeline.
 
-## Quick VPS setup (recommended)
+## Same VPS as OpenClaw (recommended)
+
+For your existing Hostinger OpenClaw VPS, use the dedicated [same-VPS deployment guide](DEPLOY_OPENCLAW_VPS.md). It installs Reel Editor as an isolated localhost service on port **8765**, alongside OpenClaw's gateway on **18789**, with no Docker and no paid cloud model. Its bounded FFmpeg workers share the existing VPS hardware without modifying the production services.
+
+## Quick VPS setup (manual / non-service alternative)
 
 This repo includes a safe bootstrap script that verifies your existing FFmpeg/libass installation, creates an isolated Python virtual environment, runs the full regression suite and prints a localhost-only startup command:
 
