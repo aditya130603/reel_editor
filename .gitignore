@@ -10,3 +10,6 @@ assets/fonts/*
 !assets/fonts/.gitkeep
 assets/sfx/*
 !assets/sfx/.gitkeep
+assets/music/*
+!assets/music/.gitkeep
+assets/ANVE_AUDIO_ORIGINS.json
