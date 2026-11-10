@@ -14,7 +14,7 @@ import wave
 from pathlib import Path
 
 RATE=22050
-GAIN=.075
+GAIN=.14
 
 def write_cues(events:list[dict],length:float,path:Path)->bool:
     if not events:
