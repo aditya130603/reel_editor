@@ -12,6 +12,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from caption_motion import STYLES, render_ass
+from broll_matcher import catalog as broll_catalog, choose as choose_broll
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -147,79 +150,16 @@ def escape_ass(text: str) -> str:
 
 
 def make_ass(words: list[dict], preset: dict, path: Path) -> list[dict]:
-    font_size = int(preset["size"]) * RENDER_HEIGHT / 1280
-    margin_v = int(RENDER_HEIGHT * (1 - float(preset["caption_position"])))
-    header = f"""[Script Info]
-ScriptType: v4.00+
-PlayResX: {RENDER_WIDTH}
-PlayResY: {RENDER_HEIGHT}
-WrapStyle: 2
-ScaledBorderAndShadow: yes
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Main,{preset['font']},{font_size:.0f},{ass_color(preset['primary'])},{ass_color(preset['accent'])},&H00151515,&H96000000,1,0,0,0,100,100,0,0,1,{int(preset['outline'])},1,2,35,35,{margin_v},1
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-    groups = phrase_groups(words, int(preset["words_per_card"]))
-    lines = []
-    for group in groups:
-        winner = emphasis_index(group, int(preset["emphasis_every"]))
-        parts = []
-        for i, word in enumerate(group):
-            t = escape_ass(word["text"])
-            if i == winner:
-                t = "{\\c" + ass_color(preset['accent']) + "\\fscx108\\fscy108}" + t + "{\\r}"
-            parts.append(t)
-        start = group[0]["start"]
-        end = max(start + 0.25, group[-1]["end"] + 0.08)
-        lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Main,,0,0,0,,{' '.join(parts)}")
-    path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
-    return [{"start": g[0]["start"], "end": g[-1]["end"],
-             "text": " ".join(w["text"] for w in g),
-             "emphasis": g[emphasis_index(g, 3)]["text"] if emphasis_index(g, 3) is not None else None}
-            for g in groups]
+    """Compatibility layer: v2 caption motion engine."""
+    return render_ass(words, preset, path, RENDER_WIDTH, RENDER_HEIGHT)
 
 
 def load_assets() -> list[dict]:
-    items = []
-    for p in sorted(ASSETS.iterdir()):
-        if p.is_file() and p.suffix.lower() in SUPPORTED_BROLL:
-            # Example filename: kidney_stone_scan.mp4 -> kidney, stone, scan
-            tags = [t for t in re.split(r"[_\-\s]+", p.stem.lower()) if t]
-            items.append({"path": p, "name": p.name, "tags": tags})
-    return items
+    return broll_catalog(ASSETS)
 
 
 def select_broll(words: list[dict], preset: dict, video_duration: float) -> list[dict]:
-    if not preset.get("broll"):
-        return []
-    assets = load_assets()
-    if not assets:
-        return []
-    choices = []
-    duration = float(preset["broll_duration"])
-    gap = float(preset["min_broll_gap"])
-    last = -999
-    seen = set()
-    for w in words:
-        token = re.sub(r"[^a-z0-9]", "", w["text"].lower())
-        if len(token) < 4 or token in STOPWORDS:
-            continue
-        at = max(0, float(w["start"]) - 0.2)
-        if at - last < gap or at + duration > video_duration - 0.2:
-            continue
-        matching = [a for a in assets if token in a["tags"] and a["name"] not in seen]
-        if not matching:
-            continue
-        item = matching[0]
-        choices.append({"start": at, "duration": duration, "asset": item["path"],
-                        "filename": item["name"], "keyword": token})
-        last = at
-        seen.add(item["name"])
-        if len(choices) >= int(preset["max_broll"]):
-            break
-    return choices
+    return choose_broll(words, preset, video_duration, ASSETS)
 
 
 def filter_path(path: Path) -> str:
@@ -268,7 +208,7 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
     cmd(args, timeout=FFMPEG_TIMEOUT)
 
 
-def execute(job_id: str, filename: str, key: str) -> None:
+def execute(job_id: str, filename: str, key: str, caption_style: str | None = None) -> None:
     folder = DATA / job_id
     input_file = folder / "input.mp4"
     try:
@@ -285,7 +225,9 @@ def execute(job_id: str, filename: str, key: str) -> None:
                 raise RuntimeError("Speech track required for automatic captions")
             status(job_id, state="transcribing", message="Transcribing with local faster-whisper")
             words = whisper_words(input_file)
-            settings = presets()[key]
+            settings = dict(presets()[key])
+            if caption_style in STYLES:
+                settings["caption_style"] = caption_style
             ass = folder / "captions.ass"
             timeline = make_ass(words, settings, ass)
             selected = select_broll(words, settings, info["duration"])
@@ -322,15 +264,23 @@ def get_presets() -> dict:
     return presets()
 
 
+@app.get("/api/caption-styles")
+def get_caption_styles() -> dict:
+    return STYLES
+
+
 @app.get("/api/assets")
 def get_assets() -> list[dict]:
     return [{"name": a["name"], "tags": a["tags"]} for a in load_assets()]
 
 
 @app.post("/api/jobs")
-async def create_job(video: UploadFile = File(...), preset: str = Form("medical_clean")) -> dict:
+async def create_job(video: UploadFile = File(...), preset: str = Form("medical_clean"),
+                     caption_style: str | None = Form(None)) -> dict:
     if preset not in presets():
         raise HTTPException(400, "Unknown preset")
+    if caption_style and caption_style not in STYLES:
+        raise HTTPException(400, "Unknown caption style")
     if Path(video.filename or "").suffix.lower() not in SUPPORTED_VIDEO:
         raise HTTPException(400, "Only MP4, MOV, MKV or WebM videos are supported")
     check = verify_tools()
@@ -358,7 +308,7 @@ async def create_job(video: UploadFile = File(...), preset: str = Form("medical_
     with lock:
         jobs[job_id] = {"id": job_id, "state": "queued", "message": "Accepted", "preset": preset,
                         "created_at": datetime.now(timezone.utc).isoformat()}
-    thread = threading.Thread(target=execute, args=(job_id, video.filename or "reel", preset),
+    thread = threading.Thread(target=execute, args=(job_id, video.filename or "reel", preset, caption_style),
                               daemon=True)
     thread.start()
     return {"id": job_id, "state": "queued"}
