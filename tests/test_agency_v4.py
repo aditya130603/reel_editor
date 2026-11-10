@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from PIL import Image, ImageChops
 
 import app
 from agency_director import PROFILES, plan, caption_config, broll_config
@@ -114,6 +115,19 @@ class AgencyReleaseTests(unittest.TestCase):
                 add_effect_sound(rendered,cue,output,90)
                 self.assertTrue(app.probe(output)["has_video"])
                 self.assertTrue(app.probe(output)["has_audio"])
+                # Validate that the actual encoded overlay changed upper-screen
+                # pixels, instead of merely producing an MP4 with invisible FX.
+                snapshots=[]
+                for path in (video,output):
+                    still=root/(path.stem+"_frame.png")
+                    subprocess.run([
+                        "ffmpeg","-hide_banner","-nostdin","-loglevel","error",
+                        "-ss","1.15","-i",str(path),"-frames:v","1","-y",
+                        str(still)
+                    ],capture_output=True,check=True,timeout=30)
+                    snapshots.append(Image.open(still).convert("RGB").crop((0,0,180,110)))
+                diff=ImageChops.difference(snapshots[0],snapshots[1])
+                self.assertIsNotNone(diff.getbbox(),"Effect overlay was invisible")
                 self.assertGreater(output.stat().st_size,5000)
             finally:
                 app.RENDER_WIDTH,app.RENDER_HEIGHT=old
