@@ -4,17 +4,19 @@ Self-hosted talking-head reel editor for **OpenClaw / Motion Graphics**. Pick a 
 
 **No Codex, subscription, paid inference, external LLM API or third-party queue is used for each edit.** The first version uses deterministic rules for emphasis and B-roll matching; it does not claim semantic understanding or professional manual-edit parity.
 
-## What works in v0.1
+## What works in v0.2
 
-- Browser upload and five editable presets: Medical Clean, Viral Punch, Luxury Minimal, Podcast Focus, Paper Soft.
+- Browser upload and **13 editable presets** for medical, podcast, editorial, documentary, minimal, cinematic, bold and storytelling reels.
 - Automatic word-timestamp transcription on the VPS with faster-whisper.
-- Subtitles with per-phrase color-highlighted emphasis words in ASS.
+- **12 caption animation modes** (highlight, karaoke, clean, editorial, punch, typewriter, outline, word-focus, soft-bounce, lower-third, glow, cinematic) generated with timed ASS animation tags.
 - Caption typography, position, stroke, size, font, grading, and pacing controlled by `presets.json`.
-- Keyword-matched local B-roll with alpha-fade entrance/exit.
+- Phrase-scored, synonym-aware local B-roll using filenames and optional sidecar JSON descriptions, with optional Ollama embeddings served strictly on localhost. No cloud inference.
+- **Six original cutaway transitions:** soft fade, left/right/up/down slide, and clean cut. All use the FFmpeg filtergraph, with captions kept above cutaways.
 - Original dialogue audio retained; MP4 export; downloadable caption file and JSON edit plan.
-- Single render slot and upload size/clip duration/FFmpeg runtime limits.
+- Single render slot, configurable FFmpeg threads and upload size/clip duration/runtime limits. Whisper weights are released after a job unless configured otherwise.
+- Browser controls to override caption animation and transition per job without changing your preset file.
 
-**Not implemented yet:** manual timeline GUI, multilingual caption fonts/accuracy QA, face-aware reframing, image-search B-roll, automatic sound effects, AI-based understanding of scenes, project persistence across restarts, multi-user authentication, and Remotion component effects. Kokoro is available for later voiceover functionality but is not needed for this pipeline.
+**Not implemented yet:** manual timeline GUI, human transcript correction, face-aware reframing, full visual image-search B-roll, automatic sound effects, semantic scene understanding beyond basic optional text embeddings, project persistence across restarts, multi-user authentication, and Remotion effects. Actual reel and VPS deployment checks are still required; the code is not a production-certified clone of Captions. Kokoro is available for later voiceover functionality but is not needed for this pipeline.
 
 ## Install on your Ubuntu VPS
 
@@ -51,23 +53,39 @@ Put your licensed video clips or images in `assets/broll/`. Use meaningful under
 - `pregnancy_ultrasound.mp4` matches **pregnancy** or **ultrasound**.
 - `website_design.webp` matches **website** or **design**.
 
-B-roll is only inserted when a spoken token exactly matches an asset filename tag; clips have preset-controlled minimum gaps, durations and fade transitions. No online asset lookups. If nothing matches, you still get a complete captioned edit.
+B-roll candidates are scored against spoken phrases and asset tags, using token normalization and domain synonym mappings. Use sidecar files like `kidney_scan.mp4.json` with `{"tags":["renal","kidney"],"description":"A doctor discussing scans"}` to improve accuracy. Clips respect preset-controlled gaps, durations, and transitions. No online asset lookups. If nothing matches, you still get captioned output.
 
 ### Motion Graphics / OpenClaw workflow
 
 The Motion Graphics agent can send a multipart POST directly to the loopback API:
 
 ```bash
-curl -s -F "video=@reel.mp4" -F "preset=medical_clean" http://127.0.0.1:8765/api/jobs
+curl -s -F "video=@reel.mp4" -F "preset=medical_clean" -F "caption_style=karaoke" -F "transition_style=soft_fade" http://127.0.0.1:8765/api/jobs
 curl -s http://127.0.0.1:8765/api/jobs/JOB_ID
 curl -L http://127.0.0.1:8765/api/jobs/JOB_ID/download -o edited.mp4
 ```
 
 The job endpoint returns quickly, and the status endpoint gives queued, analyzing, transcribing, rendering, completed or failed. The browser polls automatically.
 
+### Optional semantic B-roll matching (local Ollama)
+
+Default lexical matching is fast and works without an embedding model. To enable additional context matching, install an embedding model into your **existing** Ollama instance (do not create another Ollama server) and configure:
+
+```bash
+ollama pull nomic-embed-text
+# .env
+OLLAMA_EMBED_MODEL=nomic-embed-text
+```
+
+Set `"broll_match": "ollama"` for selected presets in `presets.json`. The matcher only contacts `http://127.0.0.1:11434/api/embed`; if the local model is missing, it falls back to lexical matching. This may consume CPU/RAM. Keep lexical matching for most reels on a shared VPS.
+
+### Adjusting presets
+
+Every named preset is editable in `presets.json`. Set `caption_style`, `transition_style`, `font`, `size`, `primary`, `accent`, `outline`, `caption_position`, `words_per_card`, `grading`, `max_broll`, `broll_duration`, and `min_broll_gap`. The browser offers convenient per-render animation and transition overrides. Start with **Medical Clean** for professional talking heads.
+
 ### Resource controls
 
-Defaults: 720×1280 render, 180-second max clip, 500 MB max upload, CPU int8 Whisper small, single active render, 900-second FFmpeg timeout. Tune with `.env`. This app does **not** modify existing systemd services or OpenClaw settings. It runs only when started.
+Defaults: 720×1280 render, 180-second max clip, 500 MB max upload, CPU int8 Whisper small, single active render, 2 FFmpeg threads, 900-second FFmpeg timeout. Tune with `.env`. This app does **not** modify existing systemd services or OpenClaw settings. It runs only when started.
 
 The input video is removed after successful rendering. Outputs stay in `data/` until you remove them manually. Set a retention policy before using long term. On failure, input is retained for debugging; clean `data/` periodically.
 
@@ -83,9 +101,10 @@ The input video is removed after successful rendering. Outputs stay in `data/` u
 
 ## Next milestones
 
-1. Render a sample clip on your VPS and fix any build-specific FFmpeg/libass issues.
-2. Expand to per-word karaoke animation, custom typefaces, and original Remotion presets.
-3. Add local embeddings for semantic B-roll matching, optional scene change/pause detection, non-AI smart reframing, licensed SFX.
-4. Add timeline review/edit and reusable per-client brand kits.
+1. Validate an actual 30–40 second reel on the VPS, including all transitions, fonts and timings.
+2. Add a correction timeline and face-safe caption placement.
+3. Add licensed SFX and music with optional audio ducking, plus local image/clip search.
+4. Extend the original motion templates with Remotion for animated cards, callouts and premium hook sequences.
+5. Add reusable brand kits, retention cleanup, authorization and resumable job records.
 
 Licensed media only: do not copy proprietary Captions AI templates or their copyrighted assets.
