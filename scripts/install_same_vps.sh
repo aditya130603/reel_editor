@@ -15,9 +15,16 @@ fi
 command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null || {
   echo "Install ffmpeg with libass first. Existing services were not changed." >&2; exit 1;
 }
-ffmpeg -hide_banner -filters 2>/dev/null | grep -q ' subtitles ' || {
-  echo "FFmpeg was built without libass. Existing services were not changed." >&2; exit 1;
+# Capture the output first: grep -q piped under pipefail can produce a
+# false failure when FFmpeg gets SIGPIPE after grep exits early.
+FILTER_OUTPUT="$(ffmpeg -hide_banner -filters 2>&1)" || {
+  echo "Unable to inspect FFmpeg filters." >&2; exit 1;
 }
+if ! grep -Eq '^[[:space:].A-Z]+[[:space:]]+(subtitles|ass)[[:space:]]' <<< "$FILTER_OUTPUT"; then
+  echo "FFmpeg has no libass subtitles/ass filter. Check: ffmpeg -hide_banner -filters | grep -E 'subtitles|ass'" >&2
+  echo "Existing production services were not changed." >&2
+  exit 1
+fi
 command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 1; }
 command -v systemctl >/dev/null || { echo "systemd is required" >&2; exit 1; }
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
