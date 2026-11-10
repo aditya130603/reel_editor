@@ -1,3 +1,19 @@
+# Primary one-click agency workflow (V4)
+
+The agent should receive **source footage and one preset name** only. Do not ask the user to pick caption style, transition, texture, animation or sound separately.
+
+Choose one of: `clinical_pro`, `paper_story`, `film_retro`, `neon_agency`.
+
+```bash
+curl -s -F 'videos=@/path/to/source.mp4' \
+  -F 'agency_preset=clinical_pro' \
+  http://127.0.0.1:8765/api/studio/jobs
+```
+
+Use additional `videos=@...` fields if multiple clips were supplied, in the order given. The preset handles designed captions, real original effect assets, automatic music and sound cues. Poll `/api/jobs/<id>` and retrieve the MP4. Treat a built-in effect as a visual overlay, not a substitute for genuine topic B-roll. Never reuse already-captioned rendered clips when raw footage is available.
+
+**Post-render QA:** inspect caption position and word synchronization, whether the effect is actually visible, whether graphics cover the face or captions, whether the soundtrack is under the voice, and whether a real B-roll match was found. Never claim Captions AI equivalence without a human-approved visual comparison.
+
 # Motion Graphics Agent — Reel Editor Operating Instructions
 
 This repository is the **local, preset-based reel editing engine** for OpenClaw Motion Graphics. Rendering must not invoke Codex or paid inference services.
