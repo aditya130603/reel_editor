@@ -157,7 +157,7 @@ WrapStyle: 2
 ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Main,{preset["font"]},{font_size:.0f},{ass_color(preset["primary"])},{ass_color(preset["accent"])},&H00151515,&H96000000,1,0,0,0,100,100,0,0,1,{int(preset["outline"])},1,2,35,35,{margin_v},1
+Style: Main,{preset['font']},{font_size:.0f},{ass_color(preset['primary'])},{ass_color(preset['accent'])},&H00151515,&H96000000,1,0,0,0,100,100,0,0,1,{int(preset['outline'])},1,2,35,35,{margin_v},1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
@@ -169,7 +169,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         for i, word in enumerate(group):
             t = escape_ass(word["text"])
             if i == winner:
-                t = "{\\c" + ass_color(preset["accent"]) + "\\fscx108\\fscy108}" + t + "{\\r}"
+                t = "{\\c" + ass_color(preset['accent']) + "\\fscx108\\fscy108}" + t + "{\\r}"
             parts.append(t)
         start = group[0]["start"]
         end = max(start + 0.25, group[-1]["end"] + 0.08)
@@ -232,10 +232,10 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
            broll: list[dict], duration: float, has_audio: bool) -> None:
     args = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", str(video)]
     for item in broll:
-        if item["asset"].suffix.lower() in SUPPORTED_VIDEO:
-            args += ["-stream_loop", "-1", "-i", str(item["asset"])]
+        if item['asset'].suffix.lower() in SUPPORTED_VIDEO:
+            args += ["-stream_loop", "-1", "-i", str(item['asset'])]
         else:
-            args += ["-loop", "1", "-framerate", "30", "-i", str(item["asset"])]
+            args += ["-loop", "1", "-framerate", "30", "-i", str(item['asset'])]
     # The base keeps original speech audio, while short keyword-matched cutaways
     # appear using alpha fades. Captions are overlaid LAST so they remain visible.
     scale = (f"scale={RENDER_WIDTH}:{RENDER_HEIGHT}:force_original_aspect_ratio=increase,"
