@@ -68,5 +68,40 @@ class EditorTests(unittest.TestCase):
                 app.RENDER_WIDTH, app.RENDER_HEIGHT = previous_width, previous_height
 
 
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg unavailable")
+    def test_six_broll_transitions(self):
+        if not app.verify_tools()["ready"]:
+            self.skipTest("FFmpeg libass unavailable")
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            source = root / "source.mp4"
+            insert = root / "kidney.mp4"
+            for color, target in [("blue", source), ("red", insert)]:
+                args = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                        "-f", "lavfi", "-i", f"color=c={color}:s=180x320:r=24:d=2",
+                        "-c:v", "mpeg4", str(target)]
+                subprocess.run(args, check=True, timeout=40, capture_output=True)
+            words = [{"start": .1, "end": .35, "text": "Kidney"}]
+            caption = root / "captions.ass"
+            preset = dict(app.presets()["medical_clean"])
+            old_size = app.RENDER_WIDTH, app.RENDER_HEIGHT
+            app.RENDER_WIDTH, app.RENDER_HEIGHT = 180, 320
+            try:
+                app.make_ass(words, preset, caption)
+                for transition in app.TRANSITIONS:
+                    with self.subTest(transition=transition):
+                        preset["transition_style"] = transition
+                        preset["transition"] = .12
+                        out = root / (transition + ".mp4")
+                        app.render(source, caption, out, preset, [
+                            {"start": .35, "duration": .9, "asset": insert}
+                        ], 2, False)
+                        self.assertGreater(out.stat().st_size, 1000)
+                        self.assertTrue(app.probe(out)["has_video"])
+            finally:
+                app.RENDER_WIDTH, app.RENDER_HEIGHT = old_size
+
+
+
 if __name__ == "__main__":
     unittest.main()
