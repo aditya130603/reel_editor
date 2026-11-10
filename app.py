@@ -199,8 +199,24 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
         if preset.get("transition_style") == "hard_cut":
             transition = .001
         # Trim before timeline offset; transparent in/out avoids hard changes.
+        motion = str(preset.get("broll_motion", "slow_push"))
+        lead = f"[{i}:v]{scale}"
+        if item["asset"].suffix.lower() not in SUPPORTED_VIDEO and motion != "none":
+            motions = {
+                "slow_push": ("min(1.0+on*0.0008,1.07)",
+                              "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"),
+                "slow_pull": ("max(1.0,1.07-on*0.0008)",
+                              "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"),
+                "pan_left": ("1.06", "max(0,(iw-iw/zoom)*(1-on/120))",
+                             "ih/2-(ih/zoom/2)"),
+                "pan_right": ("1.06", "min(iw-iw/zoom,(iw-iw/zoom)*on/120)",
+                              "ih/2-(ih/zoom/2)"),
+            }
+            z, x_motion, y_motion = motions.get(motion, motions["slow_push"])
+            lead += (f",zoompan=z='{z}':x='{x_motion}':y='{y_motion}':"
+                     f"d=1:s={RENDER_WIDTH}x{RENDER_HEIGHT}:fps=30")
         filters.append(
-            f"[{i}:v]{scale},trim=duration={dur:.3f},setpts=PTS-STARTPTS,"
+            lead + f",trim=duration={dur:.3f},setpts=PTS-STARTPTS,"
             f"format=yuva420p,fade=t=in:st=0:d={transition:.3f}:alpha=1,"
             f"fade=t=out:st={dur-transition:.3f}:d={transition:.3f}:alpha=1,"
             f"setpts=PTS+{at:.3f}/TB[cut{i}]"
