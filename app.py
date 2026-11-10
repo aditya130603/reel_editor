@@ -319,11 +319,14 @@ async def create_job(video: UploadFile = File(...), preset: str = Form("medical_
     check = verify_tools()
     if not check["ready"]:
         raise HTTPException(503, check["reason"])
-    # Refuse new work while another job is being analyzed or rendered.
+    # Reserve the only available slot BEFORE reading the upload.
+    job_id = uuid.uuid4().hex
     with lock:
         if any(j["state"] not in {"completed", "failed"} for j in jobs.values()):
             raise HTTPException(429, "Editor busy: finish the current job first")
-    job_id = uuid.uuid4().hex
+        jobs[job_id] = {"id": job_id, "state": "uploading", "message": "Receiving video",
+                        "preset": preset,
+                        "created_at": datetime.now(timezone.utc).isoformat()}
     folder = DATA / job_id
     folder.mkdir(parents=True)
     target = folder / "input.mp4"
@@ -337,10 +340,10 @@ async def create_job(video: UploadFile = File(...), preset: str = Form("medical_
                 out.write(part)
     except Exception:
         shutil.rmtree(folder, ignore_errors=True)
+        with lock:
+            jobs.pop(job_id, None)
         raise
-    with lock:
-        jobs[job_id] = {"id": job_id, "state": "queued", "message": "Accepted", "preset": preset,
-                        "created_at": datetime.now(timezone.utc).isoformat()}
+    status(job_id, state="queued", message="Accepted")
     thread = threading.Thread(target=execute, args=(job_id, video.filename or "reel", preset, caption_style, transition_style),
                               daemon=True)
     thread.start()
