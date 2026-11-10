@@ -1,0 +1,5 @@
+# Optional. Install only if you want local person-mask segmentation.
+# Keep main Reel Editor lightweight on your shared OpenClaw VPS.
+mediapipe==0.10.21
+opencv-contrib-python-headless>=4.8,<5
+numpy>=1.26,<2
