@@ -21,6 +21,7 @@ from studio_pipeline import (
 
 router = APIRouter()
 ALLOWED_MUSIC = {".mp3", ".m4a", ".wav", ".flac", ".ogg"}
+MUSIC_DIR = Path(__file__).resolve().parent / "assets" / "music"
 
 
 def process_studio(job_id: str, video_paths: list[Path], soundtrack: Path | None,
@@ -122,8 +123,15 @@ def process_studio(job_id: str, video_paths: list[Path], soundtrack: Path | None
             (folder / name).unlink(missing_ok=True)
         for p in video_paths:
             p.unlink(missing_ok=True)
-        if soundtrack:
+        if soundtrack and soundtrack.parent == folder:
             soundtrack.unlink(missing_ok=True)
+
+
+@router.get("/api/studio/music")
+def music_library() -> dict:
+    MUSIC_DIR.mkdir(parents=True, exist_ok=True)
+    return {"tracks": [p.name for p in sorted(MUSIC_DIR.iterdir())
+                       if p.is_file() and p.suffix.lower() in ALLOWED_MUSIC]}
 
 
 @router.get("/api/studio/options")
@@ -138,6 +146,7 @@ def options() -> dict:
 async def create_studio_job(
     videos: list[UploadFile] = File(...),
     music: UploadFile | None = File(None),
+    music_track: str | None = Form(None),
     preset: str = Form("medical_clean"),
     caption_style: str | None = Form(None),
     clip_transition: str = Form("fade"),
@@ -151,6 +160,12 @@ async def create_studio_job(
         raise HTTPException(400, "Select 1–8 video clips")
     if any(Path(v.filename or "").suffix.lower() not in core.SUPPORTED_VIDEO for v in videos):
         raise HTTPException(400, "Only MP4, MOV, MKV or WebM video clips")
+    if music and music_track:
+        raise HTTPException(400, "Choose either uploaded music or a library track")
+    if music_track and (Path(music_track).name != music_track
+                        or not (MUSIC_DIR / music_track).is_file()
+                        or Path(music_track).suffix.lower() not in ALLOWED_MUSIC):
+        raise HTTPException(400, "Unknown or unsafe music-library track")
     if music and Path(music.filename or "").suffix.lower() not in ALLOWED_MUSIC:
         raise HTTPException(400, "Music must be MP3, WAV, OGG, M4A or FLAC")
     if preset not in core.presets():
@@ -191,6 +206,8 @@ async def create_studio_job(
         if music:
             soundtrack = folder / ("soundtrack" + Path(music.filename or "").suffix.lower())
             queue.append((music, soundtrack))
+        elif music_track:
+            soundtrack = MUSIC_DIR / music_track
         for upload, file in queue:
             with file.open("wb") as out:
                 while chunk := await upload.read(1024 * 1024):
