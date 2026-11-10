@@ -40,6 +40,8 @@ a.download{display:inline-block;border-radius:9px;padding:10px 13px;background:#
 <div class="note" id="asset-count">Checking B-roll library...</div>
 <h2 style="margin-top:24px">02 / Choose an editing preset</h2><div class="presets" id="presets"></div>
 <h2 style="margin-top:24px">03 / Fine-tune the edit</h2>
+<label class="field" for="motionpack">Motion graphics style</label><select id="motionpack"></select>
+<p style="font-size:12px">Automatically creates animated keyword cards, number graphics, ratings or progress indicators from speech. Original local render components.</p>
 <div class="grid"><div><label class="field" for="join">Between-clip transitions</label><select id="join"></select></div>
 <div><label class="field" for="captions">Captions</label><select id="captions"><option value="">Use preset default</option></select></div>
 <div><label class="field" for="title">Big motion words / callouts</label><select id="title"></select></div>
@@ -104,6 +106,8 @@ async function init(){
   safeFetch('/api/health'),safeFetch('/api/presets'),safeFetch('/api/studio/options'),safeFetch('/api/assets')]);
  $('asset-count').textContent=assets.length+' licensed B-roll asset(s) available';
  $('health').textContent=health.ready?'Engine ready':'Engine unavailable';
+ for(const [key,value] of Object.entries(options.motion_packs||{})){const o=document.createElement('option');o.value=key;o.textContent=value;$('motionpack').appendChild(o)}
+ $('motionpack').value='neon_business';
  for(const [key,value] of Object.entries(options.clip_transitions)){const o=document.createElement('option');o.value=key;o.textContent=value;$('join').appendChild(o)}
  for(const [key,value] of Object.entries(options.title_effects)){const o=document.createElement('option');o.value=key;o.textContent=value;$('title').appendChild(o)}
  $('title').value='editorial';
@@ -124,7 +128,7 @@ $('render').onclick=async()=>{
   for(const f of queue)data.append('videos',f);
   const music=$('music').files[0];if(music)data.append('music',music);
   data.append('preset',preset);data.append('clip_transition',$('join').value);
-  data.append('title_effect',$('title').value);data.append('music_volume',Number($('volume').value)/100);data.append('subject_depth',$('depth').checked);
+  data.append('title_effect',$('title').value);data.append('motion_pack',$('motionpack').value);data.append('music_volume',Number($('volume').value)/100);data.append('subject_depth',$('depth').checked);
   if($('captions').value)data.append('caption_style',$('captions').value);
   $('feedback').textContent='Uploading '+queue.length+' clip(s)…';
   const response=await fetch('/api/studio/jobs',{method:'POST',body:data});
