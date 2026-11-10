@@ -58,6 +58,13 @@ def presets() -> dict:
 def status(job_id: str, **update: Any) -> None:
     with lock:
         jobs[job_id].update(update)
+        snapshot = dict(jobs[job_id])
+    # Persist job state so an idle auto-sync restart does not lose downloads.
+    folder = DATA / job_id
+    if folder.exists():
+        tmp = folder / "job.json.tmp"
+        tmp.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
+        tmp.replace(folder / "job.json")
 
 
 def cmd(args: list[str], timeout: int = 60) -> str:
@@ -420,17 +427,25 @@ async def create_job(video: UploadFile = File(...), preset: str = Form("medical_
 
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str) -> dict:
+    if not re.fullmatch(r"[a-f0-9]{32}", job_id):
+        raise HTTPException(404, "Unknown job")
     with lock:
         found = jobs.get(job_id)
-        if found is None:
-            raise HTTPException(404, "Unknown job")
-        return dict(found)
+        if found is not None:
+            return dict(found)
+    record = DATA / job_id / "job.json"
+    if record.is_file():
+        try:
+            return json.loads(record.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+    raise HTTPException(404, "Unknown job")
 
 
 @app.get("/api/jobs/{job_id}/download")
 def download(job_id: str) -> FileResponse:
     output = DATA / job_id / "output.mp4"
-    if job_id not in jobs or jobs[job_id]["state"] != "completed" or not output.exists():
+    if get_job(job_id).get("state") != "completed" or not output.exists():
         raise HTTPException(404, "Output not ready")
     return FileResponse(output, filename=f"edited_{job_id[:8]}.mp4", media_type="video/mp4")
 
@@ -438,7 +453,7 @@ def download(job_id: str) -> FileResponse:
 @app.get("/api/jobs/{job_id}/plan")
 def download_plan(job_id: str) -> FileResponse:
     output = DATA / job_id / "edit_plan.json"
-    if job_id not in jobs or not output.exists():
+    if get_job(job_id).get("state") != "completed" or not output.exists():
         raise HTTPException(404, "Plan not ready")
     return FileResponse(output, filename=f"edit_plan_{job_id[:8]}.json")
 
