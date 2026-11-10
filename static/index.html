@@ -60,7 +60,7 @@ async function init(){
   const [health,presets,assets,styles]=await Promise.all([
    fetch('/api/health').then(r=>r.json()),fetch('/api/presets').then(r=>r.json()),fetch('/api/assets').then(r=>r.json()),fetch('/api/caption-styles').then(r=>r.json())]);
   $('health').textContent=health.ready?'Engine ready':'Engine setup needed';
-  for(const [key,description] of Object.entries(styles)){const o=document.createElement('option');o.value=key;o.textContent=key.replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase())+' · '+description;$('caption-style').appendChild(o)}
+  for(const [key,description] of Object.entries(styles)){const o=document.createElement('option');o.value=key;o.textContent=key.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())+' · '+description;$('caption-style').appendChild(o)}
   $('asset-count').textContent=assets.length+' local B-roll clips available.';
   $('presets').innerHTML='';
   for(const [key,p] of Object.entries(presets)){
