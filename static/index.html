@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel Editor — Local Studio</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1015;--panel:#151b23;--border:#2b3540;--muted:#93a0b0;--accent:#79dfcc}
+*{box-sizing:border-box}body{background:var(--bg);color:#eef3f5;font-family:Inter,system-ui,Arial,sans-serif;margin:0}
+.wrap{max-width:1100px;margin:0 auto;padding:38px 22px}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px}
+h1{font-size:33px;letter-spacing:-1.2px;margin:0 0 8px}.eyebrow{letter-spacing:2px;text-transform:uppercase;color:var(--accent);font-size:12px;font-weight:800}
+p{color:var(--muted);line-height:1.6}.layout{display:grid;grid-template-columns:1.1fr .9fr;gap:24px}
+.panel{background:var(--panel);border:1px solid var(--border);padding:26px;border-radius:18px}
+.upload{display:block;border:2px dashed #425260;border-radius:15px;padding:32px 20px;text-align:center;cursor:pointer;transition:.15s}
+.upload:hover,.upload.drag{border-color:var(--accent);background:#1c2930}.upload strong{display:block;font-size:18px}.upload small{color:var(--muted)}
+input[type=file]{display:none}.presets{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:18px}
+.preset{cursor:pointer;padding:15px;border:1px solid var(--border);border-radius:12px;background:#171f28;text-align:left;color:inherit}
+.preset.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.preset strong{display:block;font-size:14px;margin-bottom:7px}.preset small{color:var(--muted);line-height:1.4}
+button.primary{margin-top:21px;width:100%;border:0;border-radius:12px;background:var(--accent);padding:17px;font-weight:800;font-size:15px;cursor:pointer;color:#092222}
+button.primary:disabled{opacity:.55;cursor:not-allowed}.muted{font-size:13px;color:var(--muted)}
+.tag{border-radius:30px;border:1px solid #3d6059;color:#b8f1e2;padding:7px 12px;font-size:12px}
+video{width:100%;max-height:480px;aspect-ratio:9/16;object-fit:contain;background:#0b0f14;border-radius:12px}
+a.download{display:inline-block;margin-top:14px;background:#233d36;border:1px solid #4a756a;border-radius:10px;padding:12px 16px;color:#d9fff4;text-decoration:none}
+a.download:hover{background:#315349}#message{min-height:24px;overflow-wrap:anywhere}
+.file-name{margin-top:12px;word-break:break-word;font-size:13px;color:#d0e7df}#video-area{display:none}
+footer{font-size:12px;color:#72818c;margin-top:25px}.assets{padding:14px;background:#10171e;border-radius:12px;font-size:13px;color:#9faebb}
+@media(max-width:750px){.layout{grid-template-columns:1fr}.wrap{padding:18px 14px}.panel{padding:19px}h1{font-size:27px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header><div><div class="eyebrow">Offline render pipeline</div><h1>Reel Editor</h1><p>Upload a talking-head reel. Pick your edit. Render locally.</p></div><span class="tag" id="health">Checking engine…</span></header>
+<div class="layout">
+<section class="panel">
+<h2>01 · Source video</h2>
+<label class="upload" id="drop"><input id="file" type="file" accept=".mp4,.mov,.mkv,.webm,video/*"><strong>Drop your reel here</strong><small>or click to browse · MP4 / MOV / MKV / WebM</small><div class="file-name" id="filename"></div></label>
+<h2>02 · Choose a preset</h2><div class="presets" id="presets">Loading presets…</div>
+<button class="primary" id="render" disabled>Render Reel</button>
+<p class="muted">Uses faster-whisper for word timings. B-roll clips are matched from <code>assets/broll/</code> by filename keywords. No paid AI or Codex calls.</p>
+</section>
+<section class="panel">
+<h2>Output</h2><div id="empty"><p>Your finished edit appears here. Captions, emphasis, cutaways and subtle fades are generated using your chosen preset.</p><div class="assets"><strong>Asset library</strong><p id="asset-count">Checking local B-roll assets…</p>Example: name a B-roll file <code>kidney_stone.mp4</code> to match “kidney” or “stone” in the reel.</div></div>
+<div id="video-area"><video id="preview" controls playsinline></video><div><a class="download" id="download" href="#">Download MP4</a> <a class="download" id="plan" href="#">Edit plan JSON</a> <a class="download" id="captions" href="#">Captions ASS</a></div></div>
+<p id="message" role="status" aria-live="polite"></p>
+</section>
+</div>
+<footer>Local-first · FFmpeg + libass + faster-whisper · No cloud credentials required · Secure this UI before exposing it outside your VPS</footer>
+</main>
+<script>
+let selected='medical_clean', reel=null, processing=false;
+const $=id=>document.getElementById(id);
+$('file').addEventListener('change',e=>setFile(e.target.files[0]));
+const drop=$('drop');
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag')});
+drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag');setFile(e.dataTransfer.files[0])});
+function setFile(f){reel=f;$('filename').textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MB':'';$('render').disabled=!f||processing}
+async function init(){
+ try{
+  const [health,presets,assets]=await Promise.all([
+   fetch('/api/health').then(r=>r.json()),fetch('/api/presets').then(r=>r.json()),fetch('/api/assets').then(r=>r.json())]);
+  $('health').textContent=health.ready?'Engine ready':'Engine setup needed';
+  $('asset-count').textContent=assets.length+' local B-roll clips available.';
+  $('presets').innerHTML='';
+  for(const [key,p] of Object.entries(presets)){
+   const b=document.createElement('button');b.type='button';b.className='preset'+(key===selected?' active':'');
+   const title=document.createElement('strong');title.textContent=p.name;
+   const desc=document.createElement('small');desc.textContent=p.description;b.append(title,desc);
+   b.addEventListener('click',()=>{selected=key;document.querySelectorAll('.preset').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
+   $('presets').appendChild(b);
+  }
+ }catch(e){$('health').textContent='Engine unavailable';$('message').textContent=e.message}
+}
+$('render').addEventListener('click',async()=>{
+ if(!reel||processing)return;processing=true;$('render').disabled=true;$('message').textContent='Uploading reel…';
+ $('video-area').style.display='none';$('empty').style.display='block';
+ try{
+  const body=new FormData();body.append('video',reel);body.append('preset',selected);
+  const resp=await fetch('/api/jobs',{method:'POST',body});const result=await resp.json();
+  if(!resp.ok)throw Error(result.detail||'Upload failed');
+  while(true){
+   await new Promise(r=>setTimeout(r,2000));
+   const res=await fetch('/api/jobs/'+result.id);const job=await res.json();
+   $('message').textContent=job.state.toUpperCase()+' · '+job.message;
+   if(job.state==='failed')throw Error(job.message);
+   if(job.state==='completed'){
+    $('preview').src=job.url;$('download').href=job.url;$('plan').href=job.plan_url;
+    $('captions').href='/api/jobs/'+result.id+'/captions';
+    $('empty').style.display='none';$('video-area').style.display='block';
+    $('message').textContent='Ready · '+(job.broll_count||0)+' B-roll clips matched';break;
+   }
+  }
+ }catch(e){$('message').textContent='Error: '+e.message}
+ finally{processing=false;$('render').disabled=!reel}
+});
+init();
+</script>
+</body></html>
