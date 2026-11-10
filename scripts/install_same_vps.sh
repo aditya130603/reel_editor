@@ -20,7 +20,7 @@ command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null || {
 FILTER_OUTPUT="$(ffmpeg -hide_banner -filters 2>&1)" || {
   echo "Unable to inspect FFmpeg filters." >&2; exit 1;
 }
-if ! grep -Eq '^[[:space:].A-Z]+[[:space:]]+(subtitles|ass)[[:space:]]' <<< "$FILTER_OUTPUT"; then
+if ! grep -Eq '^[[:space:].A-Z]+[[:space:]]+subtitles[[:space:]]' <<< "$FILTER_OUTPUT"; then
   echo "FFmpeg has no libass subtitles/ass filter. Check: ffmpeg -hide_banner -filters | grep -E 'subtitles|ass'" >&2
   echo "Existing production services were not changed." >&2
   exit 1
