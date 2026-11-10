@@ -4,7 +4,9 @@ from __future__ import annotations
 import gc
 import json
 import os
+import re
 import shutil
+import subprocess
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -194,3 +196,55 @@ async def create_studio_job(
     )
     worker.start()
     return {"id": job, "state": "queued"}
+
+
+@router.post("/api/studio/assets")
+async def add_broll_assets(
+    files: list[UploadFile] = File(...),
+    tags: str = Form(""),
+) -> dict:
+    """Upload licensed local cutaways; no external image search or generation."""
+    import app as core
+    if not 1 <= len(files) <= 10:
+        raise HTTPException(400, "Select 1–10 B-roll assets")
+    if len(tags) > 250:
+        raise HTTPException(400, "Tags field is too long")
+    extra_tags = [t.strip() for t in re.split(r"[,;]", tags) if t.strip()]
+    saved = []
+    for upload in files:
+        ext = Path(upload.filename or "").suffix.lower()
+        if ext not in core.SUPPORTED_BROLL:
+            raise HTTPException(400, "B-roll must be MP4, MOV, WebM, PNG, JPEG or WebP")
+        stem = re.sub(r"[^a-zA-Z0-9_-]+", "_", Path(upload.filename or "").stem).strip("_")[:100]
+        if not stem:
+            raise HTTPException(400, "Invalid asset filename")
+        target = core.ASSETS / (stem + ext)
+        if target.exists():
+            raise HTTPException(409, f"Asset {target.name} already exists")
+        written = 0
+        try:
+            with target.open("xb") as out:
+                while chunk := await upload.read(1024 * 1024):
+                    written += len(chunk)
+                    if written > 200 * 1024 * 1024:
+                        raise HTTPException(413, "B-roll asset exceeds 200 MB")
+                    out.write(chunk)
+            # ffprobe handles both motion and still-image media; reject broken files.
+            probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                 "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(target)],
+                text=True, capture_output=True, timeout=20
+            )
+            if probe.returncode or "video" not in probe.stdout:
+                raise HTTPException(400, f"Cannot decode B-roll file: {target.name}")
+            if extra_tags:
+                sidecar = target.with_name(target.name + ".json")
+                sidecar.write_text(json.dumps({
+                    "tags": extra_tags,
+                    "description": "User-provided licensed B-roll"
+                }), encoding="utf-8")
+            saved.append(target.name)
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
+    return {"saved": saved, "asset_count": len(core.load_assets())}
