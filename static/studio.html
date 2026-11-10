@@ -40,6 +40,7 @@ a.download{display:inline-block;border-radius:9px;padding:10px 13px;background:#
 <label class="drop" style="padding:10px 6px"><input id="music" type="file" accept=".mp3,.wav,.m4a,.ogg,.flac,audio/*"><small id="musicname">Select locally licensed music</small></label></div>
 </div><label class="field" for="volume">Music volume <span id="volumelabel">12%</span></label>
 <input id="volume" type="range" min="0" max="35" value="12">
+<label style="display:flex;align-items:center;gap:10px;margin-top:18px;font-size:13px;cursor:pointer"><input id="depth" type="checkbox" style="width:18px;height:18px"><span>Text behind the speaker <small style="display:block;color:#97aab5">(Experimental local subject segmentation; optional install and extra CPU)</small></span></label>
 <button id="render" class="primary" disabled>Render my reel</button>
 <div class="note">No Codex, remote AI or external media search. B-roll uses your local assets library; speech stays at full volume while music ducks beneath it.</div></section>
 <section class="panel"><h2>Preview / Export</h2>
@@ -101,7 +102,7 @@ $('render').onclick=async()=>{
   for(const f of queue)data.append('videos',f);
   const music=$('music').files[0];if(music)data.append('music',music);
   data.append('preset',preset);data.append('clip_transition',$('join').value);
-  data.append('title_effect',$('title').value);data.append('music_volume',Number($('volume').value)/100);
+  data.append('title_effect',$('title').value);data.append('music_volume',Number($('volume').value)/100);data.append('subject_depth',$('depth').checked);
   if($('captions').value)data.append('caption_style',$('captions').value);
   $('feedback').textContent='Uploading '+queue.length+' clip(s)…';
   const response=await fetch('/api/studio/jobs',{method:'POST',body:data});
