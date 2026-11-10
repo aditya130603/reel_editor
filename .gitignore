@@ -8,3 +8,5 @@ assets/broll/*
 !assets/broll/.gitkeep
 assets/fonts/*
 !assets/fonts/.gitkeep
+assets/sfx/*
+!assets/sfx/.gitkeep
