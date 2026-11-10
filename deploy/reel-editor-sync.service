@@ -1,0 +1,10 @@
+[Unit]
+Description=Check GitHub for Reel Editor updates without disturbing OpenClaw
+After=network-online.target reel-editor.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/reel_editor/scripts/sync_from_github.sh
+TimeoutStartSec=240
+Nice=10
+CPUQuota=75%
