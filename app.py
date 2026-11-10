@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import gc
 import os
 import re
 import shutil
@@ -192,8 +193,16 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
             f"fade=t=out:st={dur-transition:.3f}:d={transition:.3f}:alpha=1,"
             f"setpts=PTS+{at:.3f}/TB[cut{i}]"
         )
-        filters.append(f"[{previous}][cut{i}]overlay=eof_action=pass:shortest=0:"
-                       f"format=auto[base{i}]")
+        transition_style = preset.get("transition_style", "soft_fade")
+        # Slide is evaluated on global timeline t; source PTS is offset to at.
+        if transition_style == "slide_left":
+            x = f"max(0,W*(1-(t-{at:.3f})/{transition:.3f}))"
+        elif transition_style == "slide_right":
+            x = f"min(0,-W*(1-(t-{at:.3f})/{transition:.3f}))"
+        else:
+            x = "0"
+        filters.append(f"[{previous}][cut{i}]overlay=x='{x}':y=0:"
+                       f"eof_action=pass:shortest=0:format=auto[base{i}]")
         previous = f"base{i}"
     filters.append(f"[{previous}]format=yuv420p,subtitles='{filter_path(ass)}':"
                    f"fontsdir='{filter_path(Path(REEL_FONTDIR))}'[finished]")
@@ -202,7 +211,7 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
         args += ["-map", "0:a:0", "-c:a", "aac", "-b:a", "160k"]
     else:
         args += ["-an"]
-    args += ["-c:v", "libx264", "-preset", os.getenv("ENCODE_PRESET", "veryfast"),
+    args += ["-threads", os.getenv("FFMPEG_THREADS", "2"), "-filter_complex_threads", "2", "-c:v", "libx264", "-preset", os.getenv("ENCODE_PRESET", "veryfast"),
              "-crf", os.getenv("ENCODE_CRF", "21"), "-pix_fmt", "yuv420p",
              "-movflags", "+faststart", "-t", f"{duration:.3f}", str(output)]
     cmd(args, timeout=FFMPEG_TIMEOUT)
@@ -225,6 +234,11 @@ def execute(job_id: str, filename: str, key: str, caption_style: str | None = No
                 raise RuntimeError("Speech track required for automatic captions")
             status(job_id, state="transcribing", message="Transcribing with local faster-whisper")
             words = whisper_words(input_file)
+            # Free Whisper weights and thread resources after transcription.
+            if os.getenv("WHISPER_KEEP_WARM", "0") != "1":
+                global _whisper
+                _whisper = None
+                gc.collect()
             settings = dict(presets()[key])
             if caption_style in STYLES:
                 settings["caption_style"] = caption_style
