@@ -64,16 +64,21 @@ def plan_components(words: list[dict], pack: str, video_duration: float,
             kind, score = ("progress_ring" if "%" in term else "metric_card"), 10
         elif re.fullmatch(r"\d+(?:[.,]\d+)?", term):
             kind, score = "metric_card", 8
-        elif "star" in phrase.lower() or "rating" in phrase.lower():
+        elif ("star" in phrase.lower() or "rating" in phrase.lower()) and re.search(r"\b[1-5](?:\.\d)?\b", phrase):
             kind, score = "rating_strip", 6
-        elif any(t in phrase.lower() for t in ("versus", "vs ", "compare", "difference")):
+        elif any(t in phrase.lower() for t in ("versus", "vs ", "compare", "difference")) and len(re.findall(r"\d[\d,.]*", phrase)) >= 2:
             kind, score = "comparison", 5
         elif score >= 2.5:
             kind = "neon_badge" if pack == "neon_business" else "kinetic_headline"
         else:
             continue
+        rank_word = term
+        if kind == "rating_strip":
+            rank_word = re.search(r"\b([1-5](?:\.\d)?)\b",phrase).group(1) + " STAR"
+        if kind == "comparison":
+            rank_word = " VS ".join(re.findall(r"[₹$]?\d[\d,.]*",phrase)[:2])
         ranked.append({"at": round(at, 3), "end": round(at + CLIP_LENGTH, 3),
-                       "kind": kind, "word": term.upper(), "phrase": phrase,
+                       "kind": kind, "word": rank_word.upper(), "phrase": phrase,
                        "score": score, "pack": pack})
     # Reserve long, quiet spacing. The spoken number/phrase drives the component.
     ranked.sort(key=lambda e: (-e["score"], e["at"]))
@@ -161,12 +166,17 @@ def paint_frame(cue: dict, width: int, height: int, progress: float):
     elif kind == "rating_strip":
         draw.rounded_rectangle((x1, y-25, x2, y+61), radius=24, fill=dark,
                                outline=accent, width=2)
-        stars = "★★★★★"
+        rating = re.search(r"([1-5])", word)
+        star_count = int(rating.group(1)) if rating else 0
+        stars = "★" * star_count + "☆" * (5 - star_count)
         f = fit_font(ImageFont, stars, True, 34, x2-x1-30)
         draw.text((width/2, y+17), stars, font=f, fill=(255,202,68,255), anchor="mm")
     elif kind == "comparison":
         middle = width//2
-        for side, label in ((0, "OPTION A"), (1, "OPTION B")):
+        labels = word.split(" VS ", 1)
+        if len(labels) != 2:
+            labels = ["A", "B"]
+        for side, label in enumerate(labels):
             left = x1+side*(middle-x1+7)
             right = middle-7 if side == 0 else x2
             top = y - 18 + int((1-enter)*18)
