@@ -17,7 +17,7 @@ from pathlib import Path
 
 from agency_director import EFFECT_DURATIONS
 
-FPS=12
+FPS=24
 W,H=360,640
 MAX_EVENTS=16
 
