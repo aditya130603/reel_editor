@@ -20,7 +20,19 @@ Self-hosted talking-head reel editor for **OpenClaw / Motion Graphics**. Pick a 
 
 **Not implemented yet:** manual timeline GUI, human transcript correction, face-aware reframing, full visual image-search B-roll, advanced automatic sound design, semantic scene understanding beyond basic optional text embeddings, project persistence across restarts, multi-user authentication, and Remotion effects. Actual reel and VPS deployment checks are still required; the code is not a production-certified clone of Captions. Kokoro is available for later voiceover functionality but is not needed for this pipeline.
 
-## Install on your Ubuntu VPS
+## Quick VPS setup (recommended)
+
+This repo includes a safe bootstrap script that verifies your existing FFmpeg/libass installation, creates an isolated Python virtual environment, runs the full regression suite and prints a localhost-only startup command:
+
+```bash
+git clone https://github.com/aditya130603/reel_editor.git
+cd reel_editor
+bash scripts/setup_vps.sh
+```
+
+It does not stop, restart, replace or install OpenClaw, nginx, AdsManagerOS, WhatsApp Bridge, Dr.irizz, HMS, Ollama or databases. It doesn't run as a background service.
+
+## Install on your Ubuntu VPS (manual alternative)
 
 ```bash
 git clone https://github.com/aditya130603/reel_editor.git
