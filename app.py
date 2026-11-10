@@ -172,7 +172,8 @@ def filter_path(path: Path) -> str:
 
 
 def render(video: Path, ass: Path, output: Path, preset: dict,
-           broll: list[dict], duration: float, has_audio: bool) -> None:
+           broll: list[dict], duration: float, has_audio: bool,
+           title_filters: list[str] | None = None) -> None:
     args = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", str(video)]
     for item in broll:
         if item['asset'].suffix.lower() in SUPPORTED_VIDEO:
@@ -238,6 +239,9 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
         filters.append(f"[{previous}][cut{i}]overlay=x='{x}':y='{y}':"
                        f"eof_action=pass:shortest=0:format=auto[base{i}]")
         previous = f"base{i}"
+    if title_filters:
+        filters.append(f"[{previous}]" + ",".join(title_filters) + "[graphics]")
+        previous = "graphics"
     filters.append(f"[{previous}]format=yuv420p,subtitles='{filter_path(ass)}':"
                    f"fontsdir='{filter_path(Path(REEL_FONTDIR))}'[finished]")
     if with_sfx:
@@ -316,7 +320,7 @@ def execute(job_id: str, filename: str, key: str, caption_style: str | None = No
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> FileResponse:
-    return FileResponse(ROOT / "static" / "index.html")
+    return FileResponse(ROOT / "static" / "studio.html")
 
 
 @app.get("/api/health")
@@ -421,3 +425,8 @@ def download_captions(job_id: str) -> FileResponse:
     if job_id not in jobs or not output.exists():
         raise HTTPException(404, "Captions not ready")
     return FileResponse(output, filename=f"captions_{job_id[:8]}.ass")
+
+
+# Studio V2 routes are separate to retain the original single-file API.
+from studio_routes import router as studio_router
+app.include_router(studio_router)
