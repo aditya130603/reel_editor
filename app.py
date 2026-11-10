@@ -173,7 +173,8 @@ def filter_path(path: Path) -> str:
 
 def render(video: Path, ass: Path, output: Path, preset: dict,
            broll: list[dict], duration: float, has_audio: bool,
-           title_filters: list[str] | None = None) -> None:
+           title_filters: list[str] | None = None,
+           subject_mask: Path | None = None) -> None:
     args = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", str(video)]
     for item in broll:
         if item['asset'].suffix.lower() in SUPPORTED_VIDEO:
@@ -188,11 +189,17 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
     if with_sfx:
         for _ in broll:
             args += ["-i", str(sound)]
+    if subject_mask:
+        args += ["-i", str(subject_mask)]
     # The base keeps original speech audio, while short keyword-matched cutaways
     # appear using alpha fades. Captions are overlaid LAST so they remain visible.
     scale = (f"scale={RENDER_WIDTH}:{RENDER_HEIGHT}:force_original_aspect_ratio=increase,"
              f"crop={RENDER_WIDTH}:{RENDER_HEIGHT},setsar=1,fps=30")
-    filters = [f"[0:v]{scale},{preset['grading']},format=yuv420p[base0]"]
+    if subject_mask:
+        filters = [f"[0:v]split=2[scene_src][person_src]",
+                   f"[scene_src]{scale},{preset['grading']},format=yuv420p[base0]"]
+    else:
+        filters = [f"[0:v]{scale},{preset['grading']},format=yuv420p[base0]"]
     previous = "base0"
     for i, item in enumerate(broll, start=1):
         at, dur = item["start"], item["duration"]
@@ -242,6 +249,16 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
     if title_filters:
         filters.append(f"[{previous}]" + ",".join(title_filters) + "[graphics]")
         previous = "graphics"
+    if subject_mask and title_filters:
+        # Input order: main video, B-roll, optional SFX, then mask.
+        mask_idx = 1 + len(broll) + (len(broll) if with_sfx else 0)
+        filters.append(f"[person_src]{scale},format=rgba[person_rgba]")
+        filters.append(f"[{mask_idx}:v]scale={RENDER_WIDTH}:{RENDER_HEIGHT},"
+                       "format=gray[mask_gray]")
+        filters.append("[person_rgba][mask_gray]alphamerge[person_front]")
+        filters.append(f"[{previous}][person_front]overlay=x=0:y=0:"
+                       "eof_action=pass:shortest=0:format=auto[composited]")
+        previous = "composited"
     filters.append(f"[{previous}]format=yuv420p,subtitles='{filter_path(ass)}':"
                    f"fontsdir='{filter_path(Path(REEL_FONTDIR))}'[finished]")
     if with_sfx:
