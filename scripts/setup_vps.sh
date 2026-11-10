@@ -13,7 +13,7 @@ FILTER_OUTPUT="$(ffmpeg -hide_banner -filters 2>&1)" || {
   echo "ERROR: Could not inspect FFmpeg filters." >&2
   exit 1
 }
-if ! grep -Eq '^[[:space:].A-Z]+[[:space:]]+(subtitles|ass)[[:space:]]' <<< "$FILTER_OUTPUT"; then
+if ! grep -Eq '^[[:space:].A-Z]+[[:space:]]+subtitles[[:space:]]' <<< "$FILTER_OUTPUT"; then
   echo "ERROR: FFmpeg lacks the libass subtitles/ass filter." >&2
   exit 1
 fi
