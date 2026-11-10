@@ -18,6 +18,7 @@ from agency_director import PROFILES, plan as agency_plan, caption_config, broll
 from agency_captions import make_subs
 from agency_fx import render_fx
 from agency_sfx import write_cues, add_effect_sound
+from agency_music import music_bed
 from studio_pipeline import (
     CLIP_TRANSITIONS, TITLE_EFFECTS, normalize_clips, join_clips,
     mix_music, drawtext_filters,
@@ -106,6 +107,11 @@ def process_studio(job_id: str, video_paths: list[Path], soundtrack: Path | None
             core.status(job_id, state="rendering", message="Rendering titles, captions and B-roll",
                         titles_count=len(title_events)+len(motion_media),
                         broll_count=len(broll))
+            # One-click presets also choose a restrained original background bed.
+            # User-uploaded/licensed tracks always take precedence.
+            if agency_preset in PROFILES and soundtrack is None:
+                soundtrack = folder / "agency_music.wav"
+                music_bed(agency_preset, soundtrack)
             has_fx_audio = bool(agency_events and core.probe(merged)["has_audio"])
             intermediate = folder / ("video_before_fx.mp4" if has_fx_audio else
                                      "video_no_music.mp4" if soundtrack else "output.mp4")
