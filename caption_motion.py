@@ -150,14 +150,15 @@ def events(words: list[dict], preset: dict) -> tuple[list[str], list[dict]]:
             for i, word in enumerate(group):
                 item_start = max(start, float(word["start"]))
                 text = hero_text(group[:i+1], accent, i if hero == i else None, style)
-                rows.append(f"Dialogue: 0,{stamp(item_start)},{stamp(end)},Main,,0,0,0,,{{{enter('clean', 200)}}}{text}")
+                item_end = max(item_start + .06, float(group[i+1]["start"])) if i+1 < len(group) else end
+                rows.append(f"Dialogue: 0,{stamp(item_start)},{stamp(item_end)},Main,,0,0,0,,{{{enter('clean', 200)}}}{text}")
             continue
         if style == "karaoke":
             # One dialogue event per word: earlier words stay muted, active word
             # gets a larger accent, following words remain white.
             for i, word in enumerate(group):
                 a = max(start, float(word["start"]))
-                b = min(end, max(a + .09, float(word["end"])))
+                b = min(end, max(a + .09, float(group[i+1]["start"]) if i+1 < len(group) else end))
                 parts = []
                 for j, other in enumerate(group):
                     value = escape(other["text"])
