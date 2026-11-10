@@ -15,6 +15,8 @@ jobs:
       - name: Install minimal app dependencies
         run: pip install 'fastapi>=0.115,<1' 'python-multipart>=0.0.9,<1' 'uvicorn>=0.30,<1'
       - name: Static compile check
-        run: python -m compileall -q app.py
+        run: python -m compileall -q app.py caption_motion.py broll_matcher.py studio_pipeline.py studio_routes.py subject_depth.py
+      - name: Check deployment script syntax
+        run: bash -n scripts/setup_vps.sh scripts/install_same_vps.sh scripts/sync_from_github.sh scripts/enable_auto_sync.sh
       - name: Tests
         run: python -m unittest discover -s tests -v
