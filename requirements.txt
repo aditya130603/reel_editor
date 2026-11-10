@@ -4,3 +4,4 @@ python-multipart>=0.0.9,<1
 faster-whisper>=1.1,<2
 # faster-whisper 1.2.1 uses av.open(metadata_errors=...), removed in newer PyAV.
 av==17.1.0
+Pillow>=10.2,<12
