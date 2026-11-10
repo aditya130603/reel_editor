@@ -55,7 +55,7 @@ class FinalRegression(unittest.TestCase):
                  "-f", "lavfi", "-i", "sine=frequency=220:duration=2",
                  "-c:v", "mpeg4", "-c:a", "aac", "-shortest", str(source)],
                 ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                 "-f", "lavfi", "-i", "color=c=red:s=180x320:d=.1",
+                 "-f", "lavfi", "-i", "color=c=red:s=180x320:d=0.1",
                  "-frames:v", "1", str(still)],
                 ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
                  "-f", "lavfi", "-i", "sine=frequency=600:duration=.5",
