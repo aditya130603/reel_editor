@@ -185,11 +185,13 @@ def drawtext_filters(words: list[dict], style: str, folder: Path,
         path = str(file).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
         at, end = entry["at"], entry["end"]
         if style == "side_stack":
-            size, x, y, color = round(width * .085), "w*0.05", "h*0.18", "white@0.90"
+            desired_size, x, y, color = round(width * .085), "w*0.05", "h*0.18", "white@0.90"
         elif style == "poster":
-            size, x, y, color = round(width * .155), "(w-text_w)/2", "h*0.20", "white@0.36"
+            desired_size, x, y, color = round(width * .155), "(w-text_w)/2", "h*0.20", "white@0.36"
         else:
-            size, x, y, color = round(width * .11), "(w-text_w)/2", "h*0.16", "white@0.88"
+            desired_size, x, y, color = round(width * .11), "(w-text_w)/2", "h*0.16", "white@0.88"
+        # Keep long words within the same horizontal safe area as captions.
+        size = min(desired_size, max(18, int(width * .78 / (len(entry["word"]) * .59))))
         # Explicit static enable windows: no user-submitted FFmpeg expressions.
         expressions.append(
             f"drawtext=textfile='{path}':fontsize={size}:fontcolor={color}:"
