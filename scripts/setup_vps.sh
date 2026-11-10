@@ -7,8 +7,14 @@ if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
   echo "ERROR: FFmpeg/ffprobe not installed. Install distro ffmpeg with libass first." >&2
   exit 1
 fi
-if ! ffmpeg -hide_banner -filters 2>/dev/null | grep -q ' subtitles '; then
-  echo "ERROR: This FFmpeg build is missing the libass subtitles filter." >&2
+# Don't combine grep -q with pipefail: FFmpeg may see SIGPIPE and trigger
+# a false failure when the filter is actually present.
+FILTER_OUTPUT="$(ffmpeg -hide_banner -filters 2>&1)" || {
+  echo "ERROR: Could not inspect FFmpeg filters." >&2
+  exit 1
+}
+if ! grep -Eq '^[[:space:].A-Z]+[[:space:]]+(subtitles|ass)[[:space:]]' <<< "$FILTER_OUTPUT"; then
+  echo "ERROR: FFmpeg lacks the libass subtitles/ass filter." >&2
   exit 1
 fi
 if ! command -v python3 >/dev/null; then
