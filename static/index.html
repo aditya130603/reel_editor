@@ -35,7 +35,7 @@ footer{font-size:12px;color:#72818c;margin-top:25px}.assets{padding:14px;backgro
 <h2>01 · Source video</h2>
 <label class="upload" id="drop"><input id="file" type="file" accept=".mp4,.mov,.mkv,.webm,video/*"><strong>Drop your reel here</strong><small>or click to browse · MP4 / MOV / MKV / WebM</small><div class="file-name" id="filename"></div></label>
 <h2>02 · Choose a preset</h2><div class="presets" id="presets">Loading presets…</div>
-<label class="hint" for="caption-style">Caption animation</label><select id="caption-style" aria-label="Caption animation"><option value="">Use preset default</option></select><button class="primary" id="render" disabled>Render Reel</button>
+<label class="hint" for="caption-style">Caption animation</label><select id="caption-style" aria-label="Caption animation"><option value="">Use preset default</option></select><label class="hint" for="transition-style">B-roll transitions</label><select id="transition-style" aria-label="B-roll transition"><option value="">Use preset default</option></select><button class="primary" id="render" disabled>Render Reel</button>
 <p class="muted">Uses faster-whisper for word timings. B-roll clips are matched from <code>assets/broll/</code> by filename keywords. No paid AI or Codex calls.</p>
 </section>
 <section class="panel">
@@ -57,9 +57,10 @@ drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag'
 function setFile(f){reel=f;$('filename').textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MB':'';$('render').disabled=!f||processing}
 async function init(){
  try{
-  const [health,presets,assets,styles]=await Promise.all([
-   fetch('/api/health').then(r=>r.json()),fetch('/api/presets').then(r=>r.json()),fetch('/api/assets').then(r=>r.json()),fetch('/api/caption-styles').then(r=>r.json())]);
+  const [health,presets,assets,styles,transitions]=await Promise.all([
+   fetch('/api/health').then(r=>r.json()),fetch('/api/presets').then(r=>r.json()),fetch('/api/assets').then(r=>r.json()),fetch('/api/caption-styles').then(r=>r.json()),fetch('/api/transitions').then(r=>r.json())]);
   $('health').textContent=health.ready?'Engine ready':'Engine setup needed';
+  for(const [key,description] of Object.entries(transitions)){const o=document.createElement('option');o.value=key;o.textContent=description;$('transition-style').appendChild(o)}
   for(const [key,description] of Object.entries(styles)){const o=document.createElement('option');o.value=key;o.textContent=key.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())+' · '+description;$('caption-style').appendChild(o)}
   $('asset-count').textContent=assets.length+' local B-roll clips available.';
   $('presets').innerHTML='';
@@ -76,7 +77,7 @@ $('render').addEventListener('click',async()=>{
  if(!reel||processing)return;processing=true;$('render').disabled=true;$('message').textContent='Uploading reel…';
  $('video-area').style.display='none';$('empty').style.display='block';
  try{
-  const body=new FormData();body.append('video',reel);body.append('preset',selected);if($('caption-style').value)body.append('caption_style',$('caption-style').value);
+  const body=new FormData();body.append('video',reel);body.append('preset',selected);if($('caption-style').value)body.append('caption_style',$('caption-style').value);if($('transition-style').value)body.append('transition_style',$('transition-style').value);
   const resp=await fetch('/api/jobs',{method:'POST',body});const result=await resp.json();
   if(!resp.ok)throw Error(result.detail||'Upload failed');
   while(true){
