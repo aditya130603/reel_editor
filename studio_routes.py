@@ -22,7 +22,8 @@ ALLOWED_MUSIC = {".mp3", ".m4a", ".wav", ".flac", ".ogg"}
 
 def process_studio(job_id: str, video_paths: list[Path], soundtrack: Path | None,
                    preset: str, captions: str | None, clip_transition: str,
-                   title_effect: str, music_volume: float) -> None:
+                   title_effect: str, music_volume: float,
+                   subject_depth: bool = False) -> None:
     # Late import avoids circular dependency with FastAPI app.
     import app as core
 
@@ -69,11 +70,17 @@ def process_studio(job_id: str, video_paths: list[Path], soundtrack: Path | None
             broll = core.select_broll(words, settings, duration) if words else []
             titles, title_events = drawtext_filters(
                 words, title_effect, folder, core.RENDER_WIDTH, core.RENDER_HEIGHT)
+            matte = None
+            if subject_depth and title_effect != "none" and title_events:
+                core.status(job_id, state="masking", message="Segmenting speaker locally (experimental)")
+                from subject_depth import create_person_mask
+                matte = create_person_mask(merged, folder, duration,
+                                           core.RENDER_WIDTH, core.RENDER_HEIGHT)
             core.status(job_id, state="rendering", message="Rendering titles, captions and B-roll",
                         titles_count=len(title_events), broll_count=len(broll))
             intermediate = folder / ("video_no_music.mp4" if soundtrack else "output.mp4")
             core.render(merged, ass, intermediate, settings, broll,
-                        duration, core.probe(merged)["has_audio"], titles)
+                        duration, core.probe(merged)["has_audio"], titles, matte)
             if soundtrack:
                 core.status(job_id, state="mixing", message="Ducking music beneath speech")
                 mix_music(intermediate, soundtrack, folder / "output.mp4",
@@ -121,7 +128,8 @@ async def create_studio_job(
     caption_style: str | None = Form(None),
     clip_transition: str = Form("fade"),
     title_effect: str = Form("editorial"),
-    music_volume: float = Form(.12)
+    music_volume: float = Form(.12),
+    subject_depth: bool = Form(False)
 ) -> dict:
     import app as core
     if not 1 <= len(videos) <= 8:
@@ -136,6 +144,8 @@ async def create_studio_job(
         raise HTTPException(400, "Unknown caption animation")
     if clip_transition not in CLIP_TRANSITIONS or title_effect not in TITLE_EFFECTS:
         raise HTTPException(400, "Unsupported transition or title effect")
+    if subject_depth and title_effect == "none":
+        raise HTTPException(400, "Subject depth requires a title effect")
     if not 0 <= music_volume <= .35:
         raise HTTPException(400, "Music volume must be 0–0.35")
     health = core.verify_tools()
@@ -179,7 +189,7 @@ async def create_studio_job(
     worker = threading.Thread(
         target=process_studio,
         args=(job, targets, soundtrack, preset, caption_style,
-              clip_transition, title_effect, music_volume),
+              clip_transition, title_effect, music_volume, subject_depth),
         daemon=True,
     )
     worker.start()
