@@ -51,6 +51,7 @@ class KineticPackTest(unittest.TestCase):
             overlays=render_components([cue],folder,180,320)
             self.assertEqual(len(overlays),1)
             self.assertGreater(overlays[0]["path"].stat().st_size,2000)
+            self.assertEqual(overlays[0]["kind"], "metric_card")
             original=app.RENDER_WIDTH,app.RENDER_HEIGHT
             app.RENDER_WIDTH,app.RENDER_HEIGHT=180,320
             try:
