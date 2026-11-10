@@ -31,6 +31,13 @@ a.download{display:inline-block;border-radius:9px;padding:10px 13px;background:#
 <label class="drop" id="drop"><input id="videos" type="file" multiple accept=".mp4,.mov,.mkv,.webm,video/*">
 <b>Upload clips</b><small>Select up to 8 clips. Use arrows below to set their order.</small></label>
 <div class="cliplist" id="cliplist"></div>
+<h2 style="margin-top:24px">B-roll asset library</h2>
+<p>Upload cutaway videos or images once. Descriptive filenames and optional tags allow automatic spoken-word matching.</p>
+<label class="drop" style="padding:15px"><input id="assets" type="file" multiple accept=".mp4,.mov,.webm,.mkv,.jpg,.jpeg,.png,.webp"><b style="font-size:14px">Add local B-roll</b><small id="assetname">Select up to 10 cutaway assets</small></label>
+<label class="field" for="asset-tags">Keywords (optional, comma separated)</label>
+<input id="asset-tags" style="width:100%;background:#111b23;color:white;padding:10px;border:1px solid #394954;border-radius:9px" placeholder="kidney, renal, scan">
+<button id="upload-assets" type="button" class="tiny" style="margin-top:10px">Save assets to local library</button>
+<div class="note" id="asset-count">Checking B-roll library...</div>
 <h2 style="margin-top:24px">02 / Choose an editing preset</h2><div class="presets" id="presets"></div>
 <h2 style="margin-top:24px">03 / Fine-tune the edit</h2>
 <div class="grid"><div><label class="field" for="join">Between-clip transitions</label><select id="join"></select></div>
@@ -76,11 +83,26 @@ const drop=$('drop');drop.ondragover=e=>{e.preventDefault();drop.style.borderCol
 drop.ondragleave=()=>drop.style.borderColor='';
 drop.ondrop=e=>{e.preventDefault();drop.style.borderColor='';queue.push(...Array.from(e.dataTransfer.files).filter(f=>/\.(mp4|mov|mkv|webm)$/i.test(f.name)));queue=queue.slice(0,8);refresh()};
 $('music').onchange=e=>{$('musicname').textContent=e.target.files[0]?.name||'Select music'};
+$('assets').onchange=e=>{$('assetname').textContent=Array.from(e.target.files).map(f=>f.name).join(', ')||'Select B-roll'};
+$('upload-assets').onclick=async()=>{
+ const chosen=$('assets').files;if(!chosen.length)return;
+ $('upload-assets').disabled=true;$('asset-count').textContent='Uploading B-roll...';
+ try{
+  const data=new FormData();for(const f of chosen)data.append('files',f);
+  data.append('tags',$('asset-tags').value);
+  const response=await fetch('/api/studio/assets',{method:'POST',body:data});const result=await response.json();
+  if(!response.ok)throw Error(result.detail||'Upload failed');
+  $('asset-count').textContent=result.asset_count+' assets in local library; '+result.saved.length+' new';
+  $('assets').value='';$('assetname').textContent='Select B-roll';
+ }catch(e){$('asset-count').textContent='B-roll upload error: '+e.message}
+ finally{$('upload-assets').disabled=false}
+};
 $('volume').oninput=()=>{$('volumelabel').textContent=$('volume').value+'%'};
 async function init(){
  try{
- const [health,presets,options]=await Promise.all([
-  safeFetch('/api/health'),safeFetch('/api/presets'),safeFetch('/api/studio/options')]);
+ const [health,presets,options,assets]=await Promise.all([
+  safeFetch('/api/health'),safeFetch('/api/presets'),safeFetch('/api/studio/options'),safeFetch('/api/assets')]);
+ $('asset-count').textContent=assets.length+' licensed B-roll asset(s) available';
  $('health').textContent=health.ready?'Engine ready':'Engine unavailable';
  for(const [key,value] of Object.entries(options.clip_transitions)){const o=document.createElement('option');o.value=key;o.textContent=value;$('join').appendChild(o)}
  for(const [key,value] of Object.entries(options.title_effects)){const o=document.createElement('option');o.value=key;o.textContent=value;$('title').appendChild(o)}
