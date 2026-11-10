@@ -1,5 +1,7 @@
 # Reel Editor — Local Preset Video Editing
 
+> **New: Reel Studio V2.** The homepage now supports up to 8 ordered clips, real clip transitions, contextual motion titles, optional licensed background music and a browser B-roll library. Captions use screen-safe wrapping. Optional local portrait segmentation enables experimental behind-person typography. See [UPGRADE_STUDIO_V2.md](UPGRADE_STUDIO_V2.md) for updating the current OpenClaw VPS and enabling safe GitHub auto-sync.
+
 Self-hosted talking-head reel editor for **OpenClaw / Motion Graphics**. Pick a preset, upload a short reel, and the app transcribes locally with faster-whisper, highlights meaningful words, matches B-roll to spoken phrases and emphasis-word timestamps, grades the footage, and exports MP4 using FFmpeg + libass.
 
 **No Codex, subscription, paid inference, external LLM API or third-party queue is used for each edit.** The first version uses deterministic rules for emphasis and B-roll matching; it does not claim semantic understanding or professional manual-edit parity.
