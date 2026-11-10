@@ -124,7 +124,7 @@ def hero_text(group: list[dict], accent: str, hero: int | None, style: str) -> s
     return " ".join(output)
 
 
-def events(words: list[dict], preset: dict) -> tuple[list[str], list[dict]]:
+def events(words: list[dict], preset: dict, width: int = 720, height: int = 1280) -> tuple[list[str], list[dict]]:
     style = preset.get("caption_style", "highlight")
     if style not in STYLES:
         style = "highlight"
@@ -146,6 +146,17 @@ def events(words: list[dict], preset: dict) -> tuple[list[str], list[dict]]:
                          "caption_style": style})
         length_ms = int((end - start) * 1000)
         entrance = enter(style, length_ms)
+        if style == "editorial":
+            # Actual upward travel in pixels, rather than merely scaling text.
+            target_y = round(height * float(preset.get("caption_position", .80)))
+            center_x = width // 2
+            entrance = (f"\\move({center_x},{target_y + 24},"
+                        f"{center_x},{target_y},0,240)\\fad(80,100)")
+        elif style == "outline":
+            # Accent-color outline with transparent fill for a refined title card.
+            entrance += "\\1a&HFF&\\3c" + accent + "\\bord4\\shad0"
+        elif style == "cinematic":
+            entrance += "\\fsp2\\blur0.6"
         if style == "typewriter":
             for i, word in enumerate(group):
                 item_start = max(start, float(word["start"]))
@@ -171,7 +182,19 @@ def events(words: list[dict], preset: dict) -> tuple[list[str], list[dict]]:
                 rows.append(f"Dialogue: 0,{stamp(a)},{stamp(b)},Main,,0,0,0,,{' '.join(parts)}")
             continue
         text = hero_text(group, accent, hero, style)
-        rows.append(f"Dialogue: 0,{stamp(start)},{stamp(end)},Main,,0,0,0,,{{{entrance}}}{text}")
+        if style == "glow":
+            # Layer 0: blurred halo. Layer 1: crisp typography on top.
+            rows.append(
+                f"Dialogue: 0,{stamp(start)},{stamp(end)},Main,,0,0,0,,"
+                "{\\blur5\\bord5\\shad0\\3c" + accent + "}"
+                + text
+            )
+            rows.append(
+                f"Dialogue: 1,{stamp(start)},{stamp(end)},Main,,0,0,0,,"
+                f"{{{entrance}\\blur0.4\\bord2}}{text}"
+            )
+        else:
+            rows.append(f"Dialogue: 0,{stamp(start)},{stamp(end)},Main,,0,0,0,,{{{entrance}}}{text}")
     return rows, timeline
 
 
@@ -191,6 +214,7 @@ def render_ass(words: list[dict], preset: dict, path: Path, width: int = 720,
         outline = max(4, outline)
     shadow = 0 if style in {"clean", "cinematic"} else 1
     spacing = 2 if style == "cinematic" else 0
+    alignment = 1 if style == "lower_third" else 2
     back = "&H80000000"
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -200,10 +224,10 @@ WrapStyle: 2
 ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Main,{font},{size},{color(preset.get('primary','FFFFFF'))},{color(preset.get('accent','79DFCC'))},&H00202020,{back},1,0,0,0,100,100,{spacing},0,1,{outline},{shadow},2,32,32,{margin},1
+Style: Main,{font},{size},{color(preset.get('primary','FFFFFF'))},{color(preset.get('accent','79DFCC'))},&H00202020,{back},1,0,0,0,100,100,{spacing},0,1,{outline},{shadow},{alignment},32,32,{margin},1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
-    lines, timeline = events(words, preset)
+    lines, timeline = events(words, preset, width, height)
     path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
     return timeline
