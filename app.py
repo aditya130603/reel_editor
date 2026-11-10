@@ -181,7 +181,8 @@ def filter_path(path: Path) -> str:
 def render(video: Path, ass: Path, output: Path, preset: dict,
            broll: list[dict], duration: float, has_audio: bool,
            title_filters: list[str] | None = None,
-           subject_mask: Path | None = None) -> None:
+           subject_mask: Path | None = None,
+           motion_overlays: list[dict] | None = None) -> None:
     args = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", str(video)]
     for item in broll:
         if item['asset'].suffix.lower() in SUPPORTED_VIDEO:
@@ -196,6 +197,10 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
     if with_sfx:
         for _ in broll:
             args += ["-i", str(sound)]
+    motion_overlays = motion_overlays or []
+    motion_base = 1 + len(broll) + (len(broll) if with_sfx else 0)
+    for item in motion_overlays:
+        args += ["-i", str(item["path"])]
     if subject_mask:
         args += ["-i", str(subject_mask)]
     # The base keeps original speech audio, while short keyword-matched cutaways
@@ -256,9 +261,18 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
     if title_filters:
         filters.append(f"[{previous}]" + ",".join(title_filters) + "[graphics]")
         previous = "graphics"
-    if subject_mask and title_filters:
+    # Transparent, reusable motion components above main scene but BELOW person mask.
+    for k, item in enumerate(motion_overlays):
+        n = motion_base + k
+        filters.append(f"[{n}:v]scale={RENDER_WIDTH}:{RENDER_HEIGHT},"
+                       f"fps=30,format=rgba,setpts=PTS-STARTPTS+{float(item['at']):.3f}/TB"
+                       f"[motion{k}]")
+        filters.append(f"[{previous}][motion{k}]overlay=x=0:y=0:"
+                       f"eof_action=pass:shortest=0:format=auto[with_motion{k}]")
+        previous = f"with_motion{k}"
+    if subject_mask and (title_filters or motion_overlays):
         # Input order: main video, B-roll, optional SFX, then mask.
-        mask_idx = 1 + len(broll) + (len(broll) if with_sfx else 0)
+        mask_idx = motion_base + len(motion_overlays)
         filters.append(f"[person_src]{scale},format=rgba[person_rgba]")
         filters.append(f"[{mask_idx}:v]scale={RENDER_WIDTH}:{RENDER_HEIGHT},"
                        "format=gray[mask_gray]")
