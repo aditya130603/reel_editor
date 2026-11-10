@@ -146,7 +146,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         token=r"{\alpha&H28&}"+token+r"{\r}"
                 elif i==hero:
                     if is_paper:
-                        token="{\\b1\\c"+color("A75533")+"}"+token+r"{\\r}"
+                        token="{\\b1\\c"+color("A75533")+"}"+token+r"{\r}"
                     else:
                         token="{\\c"+accent+r"\b1}"+token+r"{\r}"
                 rendered.append(token)
