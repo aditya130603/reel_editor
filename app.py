@@ -468,4 +468,8 @@ def download_captions(job_id: str) -> FileResponse:
 
 # Studio V2 routes are separate to retain the original single-file API.
 from studio_routes import router as studio_router
-app.include_router(studio_router)
+# Register concrete routes directly. Works consistently with new FastAPI router versions.
+for studio_route in studio_router.routes:
+    app.add_api_route(studio_route.path, studio_route.endpoint,
+                      methods=list(studio_route.methods or {"GET"}),
+                      name=studio_route.name)
