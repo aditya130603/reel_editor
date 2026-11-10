@@ -114,14 +114,34 @@ def enter(style: str, length_ms: int) -> str:
     return f"\\fad(65,100)\\fscx103\\fscy103\\t(0,{m},\\fscx100\\fscy100)"
 
 
-def hero_text(group: list[dict], accent: str, hero: int | None, style: str) -> str:
-    output = []
+def wrap_parts(parts: list[str], word_lengths: list[int], max_chars: int) -> str:
+    """Add explicit ASS line breaks; avoid relying on libass auto-wrap."""
+    if not parts:
+        return ""
+    total = sum(word_lengths) + len(parts) - 1
+    if total <= max_chars or len(parts) == 1:
+        return " ".join(parts)
+    cumulative = 0
+    target = total / 2
+    split = 1
+    for i, length in enumerate(word_lengths[:-1]):
+        cumulative += length + (1 if i else 0)
+        if cumulative <= target:
+            split = i + 1
+        else:
+            break
+    return " ".join(parts[:split]) + r"\N" + " ".join(parts[split:])
+
+
+def hero_text(group: list[dict], accent: str, hero: int | None,
+              style: str, max_chars: int = 18) -> str:
+    parts = []
     for i, word in enumerate(group):
         part = escape(word["text"])
         if i == hero and style != "lower_third":
             part = "{\\c" + accent + "\\b1}" + part + "{\\r}"
-        output.append(part)
-    return " ".join(output)
+        parts.append(part)
+    return wrap_parts(parts, [len(w["text"]) for w in group], max_chars)
 
 
 def events(words: list[dict], preset: dict, width: int = 720, height: int = 1280) -> tuple[list[str], list[dict]]:
@@ -131,7 +151,22 @@ def events(words: list[dict], preset: dict, width: int = 720, height: int = 1280
     count = max(1, int(preset.get("words_per_card", 4)))
     if style == "word_focus":
         count = 1
-    grouped = groups(words, count)
+    size_estimate = max(34, int(preset.get("size", 60)) * height / 1280)
+    max_chars = max(10, int((width * .80) / (size_estimate * .54)))
+    prelim = groups(words, count)
+    grouped = []
+    for group in prelim:
+        chunk = []
+        for w in group:
+            prospective = chunk + [w]
+            text_width = sum(len(v["text"]) for v in prospective) + len(prospective) - 1
+            if chunk and text_width > max_chars * 1.75:
+                grouped.append(chunk)
+                chunk = [w]
+            else:
+                chunk = prospective
+        if chunk:
+            grouped.append(chunk)
     accent = color(preset.get("accent", "79DFCC"))
     rows, timeline = [], []
     for group in grouped:
@@ -160,7 +195,7 @@ def events(words: list[dict], preset: dict, width: int = 720, height: int = 1280
         if style == "typewriter":
             for i, word in enumerate(group):
                 item_start = max(start, float(word["start"]))
-                text = hero_text(group[:i+1], accent, i if hero == i else None, style)
+                text = hero_text(group[:i+1], accent, i if hero == i else None, style, max_chars)
                 item_end = max(item_start + .06, float(group[i+1]["start"])) if i+1 < len(group) else end
                 rows.append(f"Dialogue: 0,{stamp(item_start)},{stamp(item_end)},Main,,0,0,0,,{{{enter('clean', 200)}}}{text}")
             continue
@@ -179,9 +214,11 @@ def events(words: list[dict], preset: dict, width: int = 720, height: int = 1280
                         parts.append("{\\alpha&H50&}" + value + "{\\r}")
                     else:
                         parts.append(value)
-                rows.append(f"Dialogue: 0,{stamp(a)},{stamp(b)},Main,,0,0,0,,{' '.join(parts)}")
+                word_lengths = [len(w["text"]) for w in group]
+                phrase = wrap_parts(parts, word_lengths, max_chars)
+                rows.append(f"Dialogue: 0,{stamp(a)},{stamp(b)},Main,,0,0,0,,{phrase}")
             continue
-        text = hero_text(group, accent, hero, style)
+        text = hero_text(group, accent, hero, style, max_chars)
         if style == "glow":
             # Layer 0: blurred halo. Layer 1: crisp typography on top.
             rows.append(
@@ -204,6 +241,9 @@ def render_ass(words: list[dict], preset: dict, path: Path, width: int = 720,
     size = round(float(preset.get("size", 64)) * height / 1280)
     if style == "word_focus":
         size = round(size * 1.16)
+    longest_word = max((len(w.get("text", "")) for w in words), default=0)
+    if longest_word:
+        size = min(size, max(28, int(width * .78 / (longest_word * .59))))
     position = max(.15, min(.93, float(preset.get("caption_position", .8))))
     margin = round(height * (1 - position))
     font = str(preset.get("font", "DejaVu Sans")).replace(",", " ")
