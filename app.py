@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from caption_motion import STYLES, render_ass
+TRANSITIONS = {"soft_fade": "Subtle crossfade", "slide_left": "Glide in from right", "slide_right": "Glide in from left", "slide_up": "Glide in from bottom", "slide_down": "Glide in from top", "hard_cut": "Clean cut with no fade"}
 from broll_matcher import catalog as broll_catalog, choose as choose_broll
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -186,6 +187,8 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
     for i, item in enumerate(broll, start=1):
         at, dur = item["start"], item["duration"]
         transition = min(float(preset["transition"]), dur / 3)
+        if preset.get("transition_style") == "hard_cut":
+            transition = .001
         # Trim before timeline offset; transparent in/out avoids hard changes.
         filters.append(
             f"[{i}:v]{scale},trim=duration={dur:.3f},setpts=PTS-STARTPTS,"
@@ -201,7 +204,13 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
             x = f"min(0,-W*(1-(t-{at:.3f})/{transition:.3f}))"
         else:
             x = "0"
-        filters.append(f"[{previous}][cut{i}]overlay=x='{x}':y=0:"
+        if transition_style == "slide_up":
+            y = f"max(0,H*(1-(t-{at:.3f})/{transition:.3f}))"
+        elif transition_style == "slide_down":
+            y = f"min(0,-H*(1-(t-{at:.3f})/{transition:.3f}))"
+        else:
+            y = "0"
+        filters.append(f"[{previous}][cut{i}]overlay=x='{x}':y='{y}':"
                        f"eof_action=pass:shortest=0:format=auto[base{i}]")
         previous = f"base{i}"
     filters.append(f"[{previous}]format=yuv420p,subtitles='{filter_path(ass)}':"
@@ -217,7 +226,7 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
     cmd(args, timeout=FFMPEG_TIMEOUT)
 
 
-def execute(job_id: str, filename: str, key: str, caption_style: str | None = None) -> None:
+def execute(job_id: str, filename: str, key: str, caption_style: str | None = None, transition_style: str | None = None) -> None:
     folder = DATA / job_id
     input_file = folder / "input.mp4"
     try:
@@ -242,6 +251,8 @@ def execute(job_id: str, filename: str, key: str, caption_style: str | None = No
             settings = dict(presets()[key])
             if caption_style in STYLES:
                 settings["caption_style"] = caption_style
+            if transition_style in TRANSITIONS:
+                settings["transition_style"] = transition_style
             ass = folder / "captions.ass"
             timeline = make_ass(words, settings, ass)
             selected = select_broll(words, settings, info["duration"])
@@ -283,6 +294,11 @@ def get_caption_styles() -> dict:
     return STYLES
 
 
+@app.get("/api/transitions")
+def get_transition_styles() -> dict:
+    return TRANSITIONS
+
+
 @app.get("/api/assets")
 def get_assets() -> list[dict]:
     return [{"name": a["name"], "tags": a["tags"]} for a in load_assets()]
@@ -290,11 +306,14 @@ def get_assets() -> list[dict]:
 
 @app.post("/api/jobs")
 async def create_job(video: UploadFile = File(...), preset: str = Form("medical_clean"),
-                     caption_style: str | None = Form(None)) -> dict:
+                     caption_style: str | None = Form(None),
+                     transition_style: str | None = Form(None)) -> dict:
     if preset not in presets():
         raise HTTPException(400, "Unknown preset")
     if caption_style and caption_style not in STYLES:
         raise HTTPException(400, "Unknown caption style")
+    if transition_style and transition_style not in TRANSITIONS:
+        raise HTTPException(400, "Unknown transition style")
     if Path(video.filename or "").suffix.lower() not in SUPPORTED_VIDEO:
         raise HTTPException(400, "Only MP4, MOV, MKV or WebM videos are supported")
     check = verify_tools()
@@ -322,7 +341,7 @@ async def create_job(video: UploadFile = File(...), preset: str = Form("medical_
     with lock:
         jobs[job_id] = {"id": job_id, "state": "queued", "message": "Accepted", "preset": preset,
                         "created_at": datetime.now(timezone.utc).isoformat()}
-    thread = threading.Thread(target=execute, args=(job_id, video.filename or "reel", preset, caption_style),
+    thread = threading.Thread(target=execute, args=(job_id, video.filename or "reel", preset, caption_style, transition_style),
                               daemon=True)
     thread.start()
     return {"id": job_id, "state": "queued"}
