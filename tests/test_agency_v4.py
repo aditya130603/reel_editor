@@ -10,6 +10,8 @@ from agency_director import PROFILES, plan, caption_config, broll_config
 from agency_captions import make_subs
 from agency_fx import make_frame, render_fx
 from agency_sfx import write_cues, add_effect_sound
+from agency_music import music_bed
+import wave
 
 WORDS=[
     {"start":.7,"end":.96,"text":"Kidney"},
@@ -55,6 +57,18 @@ class AgencyReleaseTests(unittest.TestCase):
                     image=make_frame(event,p,180,320)
                     self.assertEqual(image.size,(180,320))
                     self.assertEqual(image.mode,"RGBA")
+
+    def test_original_preset_soundtracks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for key in PROFILES:
+                with self.subTest(key=key):
+                    dest=Path(folder)/(key+".wav")
+                    music_bed(key,dest)
+                    with wave.open(str(dest),"rb") as audio:
+                        self.assertEqual(audio.getnchannels(),1)
+                        self.assertEqual(audio.getframerate(),16000)
+                        self.assertEqual(audio.getnframes(),12*16000)
+                    self.assertGreater(dest.stat().st_size,250000)
 
     def test_caption_safe_area(self):
         with tempfile.TemporaryDirectory() as d:
