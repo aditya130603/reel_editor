@@ -85,14 +85,14 @@ def make_frame(event:dict, progress:float, w=W, h=H):
         elif kind=="click":
             t=smooth(min(1,p/.55))
             for k in range(3):
-                radius=round((8+k*16)*t)
+                radius=round(min(40,w*.11)*((k+1)/3)*t)
                 alpha=round((190-k*38)*(1-t*.65)*fade)
                 d.ellipse((x-radius,y-radius,x+radius,y+radius),
                           outline=rgba(primary,alpha),width=3)
             d.ellipse((x-4,y-4,x+4,y+4),fill=rgba("#FFFFFF",round(245*fade)))
             for k in range(8):
                 a=(k*math.pi/4)
-                r=round(32*t)
+                r=round(min(35,w*.10)*t)
                 d.line(((x+math.cos(a)*(r-9),y+math.sin(a)*(r-9)),
                         (x+math.cos(a)*r,y+math.sin(a)*r)),fill=col,width=3)
         elif kind=="diagram_lines":
@@ -106,7 +106,8 @@ def make_frame(event:dict, progress:float, w=W, h=H):
             label=event.get("word","")
             if label:
                 f=font(True,min(31,max(15,int(w*.65/max(len(label)*.59,1)))))
-                d.text((x0,stem_y-15),label,font=f,fill=col,anchor="lb")
+                d.text(((x0 if left else x1),stem_y-15),label,
+                       font=f,fill=col,anchor=("lb" if left else "rb"))
         else:
             cx,cy=x,y
             s=round(min(w*.105,38)*smooth(min(1,p/.3)))
