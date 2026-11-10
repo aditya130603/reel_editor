@@ -58,7 +58,7 @@ class FinalRegression(unittest.TestCase):
                  "-f", "lavfi", "-i", "color=c=red:s=180x320:d=0.1",
                  "-frames:v", "1", str(still)],
                 ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                 "-f", "lavfi", "-i", "sine=frequency=600:duration=.5",
+                 "-f", "lavfi", "-i", "sine=frequency=600:duration=0.5",
                  "-ar", "48000", str(sound)],
             ]
             for command in cmds:
