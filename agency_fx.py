@@ -69,12 +69,14 @@ def make_frame(event:dict, progress:float, w=W, h=H):
     col=rgba(primary,round(238*fade))
     zone=event.get("zone","upper-left")
     left=(zone=="upper-left")
-    x=int(w*(.28 if left else .72))
-    y=int(h*.18)
+    # Side gutters are safer than center-top: a centered speaker often has
+    # hair/forehead at y=.15-.3. Keep short callouts near the outer edges.
+    x=int(w*(.12 if left else .88))
+    y=int(h*.24)
     # top placement chosen deliberately: not the caption strip at y=.77-.91.
     if kind in {"scribble","diagram_lines","click","sticker"}:
         if kind=="scribble":
-            points=pathscribble(x,y,int(w*.16),int(h*.058))
+            points=pathscribble(x,y,int(w*.082),int(h*.036))
             n=max(2,round(len(points)*smooth(min(1,p/.35))))
             d.line(points[:n],fill=col,width=5,joint="curve")
             if n>3:
@@ -90,14 +92,14 @@ def make_frame(event:dict, progress:float, w=W, h=H):
             d.ellipse((x-4,y-4,x+4,y+4),fill=rgba("#FFFFFF",round(245*fade)))
             for k in range(8):
                 a=(k*math.pi/4)
-                r=round(50*t)
+                r=round(32*t)
                 d.line(((x+math.cos(a)*(r-9),y+math.sin(a)*(r-9)),
                         (x+math.cos(a)*r,y+math.sin(a)*r)),fill=col,width=3)
         elif kind=="diagram_lines":
             stem_y=y+round(h*.08)
             t=smooth(min(1,p/.55))
-            x0=int(w*.10 if left else w*.55)
-            x1=int(w*.45 if left else w*.90)
+            x0=int(w*.045 if left else w*.71)
+            x1=int(w*.29 if left else w*.955)
             d.line(((x0,stem_y),(x0+(x1-x0)*t,stem_y)),fill=col,width=3)
             d.line(((x0,stem_y-17*t),(x0,stem_y+17*t)),fill=col,width=3)
             d.ellipse((x1-7,stem_y-7,x1+7,stem_y+7),outline=col,width=3)
@@ -107,7 +109,7 @@ def make_frame(event:dict, progress:float, w=W, h=H):
                 d.text((x0,stem_y-15),label,font=f,fill=col,anchor="lb")
         else:
             cx,cy=x,y
-            s=round(45*smooth(min(1,p/.3)))
+            s=round(min(w*.105,38)*smooth(min(1,p/.3)))
             d.rounded_rectangle((cx-s,cy-s,cx+s,cy+s),radius=10,
                                 fill=rgba("#FFF7DB",round(225*fade)),
                                 outline=rgba("#7A512E",round(200*fade)),width=3)
