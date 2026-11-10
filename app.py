@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 ASSETS = ROOT / "assets" / "broll"
+SFX_DIR = ROOT / "assets" / "sfx"
 PRESETS = ROOT / "presets.json"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "500"))
 RENDER_HEIGHT = int(os.getenv("RENDER_HEIGHT", "1280"))
@@ -43,7 +44,7 @@ render_lock = threading.Lock()
 transcription_lock = threading.Lock()
 _whisper = None
 
-for directory in (DATA, ASSETS, Path(REEL_FONTDIR)):
+for directory in (DATA, ASSETS, SFX_DIR, Path(REEL_FONTDIR)):
     directory.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Reel Editor", docs_url="/api/docs")
@@ -178,6 +179,14 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
             args += ["-stream_loop", "-1", "-i", str(item['asset'])]
         else:
             args += ["-loop", "1", "-framerate", "30", "-i", str(item['asset'])]
+    # Optional licensed local sound effects on B-roll cuts; otherwise no SFX inputs.
+    sound = SFX_DIR / Path(str(preset.get("sfx_file", "soft_whoosh.wav"))).name
+    with_sfx = bool(has_audio and broll and preset.get("sfx", False)
+                    and sound.suffix.lower() in {".wav", ".mp3", ".ogg"}
+                    and sound.is_file())
+    if with_sfx:
+        for _ in broll:
+            args += ["-i", str(sound)]
     # The base keeps original speech audio, while short keyword-matched cutaways
     # appear using alpha fades. Captions are overlaid LAST so they remain visible.
     scale = (f"scale={RENDER_WIDTH}:{RENDER_HEIGHT}:force_original_aspect_ratio=increase,"
@@ -215,9 +224,24 @@ def render(video: Path, ass: Path, output: Path, preset: dict,
         previous = f"base{i}"
     filters.append(f"[{previous}]format=yuv420p,subtitles='{filter_path(ass)}':"
                    f"fontsdir='{filter_path(Path(REEL_FONTDIR))}'[finished]")
+    if with_sfx:
+        filters.append("[0:a:0]aresample=48000,aformat=channel_layouts=stereo[dialogue]")
+        parts = ["[dialogue]"]
+        volume = max(0.0, min(0.22, float(preset.get("sfx_volume", .09))))
+        for i, item in enumerate(broll):
+            n = 1 + len(broll) + i
+            delay_ms = max(0, int(1000 * item["start"]))
+            filters.append(f"[{n}:a]atrim=duration=0.55,asetpts=PTS-STARTPTS,"
+                           f"aresample=48000,aformat=channel_layouts=stereo,"
+                           f"volume={volume:.3f},afade=t=out:st=0.36:d=0.19,"
+                           f"adelay={delay_ms}:all=1[sound{i}]")
+            parts.append(f"[sound{i}]")
+        filters.append("".join(parts) + f"amix=inputs={len(parts)}:"
+                       "duration=first:dropout_transition=0[mixed]")
     args += ["-filter_complex", ";".join(filters), "-map", "[finished]"]
     if has_audio:
-        args += ["-map", "0:a:0", "-c:a", "aac", "-b:a", "160k"]
+        args += ["-map", "[mixed]" if with_sfx else "0:a:0",
+                 "-c:a", "aac", "-b:a", "160k"]
     else:
         args += ["-an"]
     args += ["-threads", os.getenv("FFMPEG_THREADS", "2"), "-filter_complex_threads", "2", "-c:v", "libx264", "-preset", os.getenv("ENCODE_PRESET", "veryfast"),
