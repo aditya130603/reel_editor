@@ -12,6 +12,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from caption_motion import hero_index
+
 MEDIA_EXT = {".mp4", ".mkv", ".mov", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
 STOP = set("the a an and but for of to is are with from into at by that this what when while then you your i my we be it as on in or was were".split())
 ALIASES = {
@@ -122,7 +124,7 @@ def candidates(words: list[dict], seconds: float, max_words: int = 15) -> list[d
     if phrase:
         result.append(phrase)
     return [{"start": float(p[0]["start"]), "end": float(p[-1]["end"]),
-             "text": " ".join(w["text"] for w in p)} for p in result if p]
+             "text": " ".join(w["text"] for w in p), "words": p} for p in result if p]
 
 
 def choose(words: list[dict], preset: dict, seconds: float,
@@ -150,11 +152,6 @@ def choose(words: list[dict], preset: dict, seconds: float,
         if not any(cache.values()):
             use_embeds = False
     for scene in scenes:
-        # Cutaway only when viewer has heard enough context.
-        at = max(.4, float(scene["start"]) + .14)
-        at = min(at, max(0, seconds-span-.1))
-        if at < .2 or seconds-at < span+.1:
-            continue
         text = scene["text"]
         embedding = local_embedding(text, model) if use_embeds else None
         for asset in assets:
@@ -162,10 +159,29 @@ def choose(words: list[dict], preset: dict, seconds: float,
             semantic = similarity(embedding, cache[asset["name"]]) if embedding and cache.get(asset["name"]) else 0
             if lexical <= 0 and semantic < .40:
                 continue
-            score = lexical + max(0, semantic - .35)*4
+            # Anchor B-roll to the first spoken term matching the asset.
+            # For embedding-only matches, align to the phrase's emphasis word.
+            tagset = {normalize(t) for t in asset["tags"]}
+            tagset |= {normalize(t) for t in tokens(asset.get("description", ""))}
+            matched_word = next(
+                (w for w in scene["words"] if
+                 any(normalize(token) in tagset for token in tokens(w["text"]))),
+                None
+            )
+            if matched_word is None:
+                hero = hero_index(scene["words"])
+                matched_word = scene["words"][hero] if hero is not None else scene["words"][0]
+            at = max(.4, float(matched_word["start"]) - .08)
+            at = min(at, max(0, seconds - span - .1))
+            if at < .2 or seconds - at < span + .1:
+                continue
+            score = lexical + max(0, semantic - .35) * 4
+            # A small deterministic preference for earlier strong matches.
+            if at < 5:
+                score += .12
             ranked.append({"start": round(at, 3), "duration": span,
                            "asset": asset["path"], "filename": asset["name"],
-                           "keyword": text[:120], "score": round(score, 3),
+                           "keyword": matched_word["text"], "score": round(score, 3),
                            "method": "ollama" if semantic > 0 else "lexical"})
     # Highest-quality matches first; only one b-roll event per sufficiently spaced window.
     ranked.sort(key=lambda item: (-item["score"], item["start"], item["filename"]))
