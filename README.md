@@ -1,6 +1,6 @@
 # Reel Editor — Local Preset Video Editing
 
-Self-hosted talking-head reel editor for **OpenClaw / Motion Graphics**. Pick a preset, upload a short reel, and the app transcribes locally with faster-whisper, highlights meaningful words, matches your own B-roll footage by filename tags, grades the footage, and exports MP4 using FFmpeg + libass.
+Self-hosted talking-head reel editor for **OpenClaw / Motion Graphics**. Pick a preset, upload a short reel, and the app transcribes locally with faster-whisper, highlights meaningful words, matches B-roll to spoken phrases and emphasis-word timestamps, grades the footage, and exports MP4 using FFmpeg + libass.
 
 **No Codex, subscription, paid inference, external LLM API or third-party queue is used for each edit.** The first version uses deterministic rules for emphasis and B-roll matching; it does not claim semantic understanding or professional manual-edit parity.
 
@@ -12,11 +12,13 @@ Self-hosted talking-head reel editor for **OpenClaw / Motion Graphics**. Pick a 
 - Caption typography, position, stroke, size, font, grading, and pacing controlled by `presets.json`.
 - Phrase-scored, synonym-aware local B-roll using filenames and optional sidecar JSON descriptions, with optional Ollama embeddings served strictly on localhost. No cloud inference.
 - **Six original cutaway transitions:** soft fade, left/right/up/down slide, and clean cut. All use the FFmpeg filtergraph, with captions kept above cutaways.
+- **Four subtle Ken Burns treatments** for still-image B-roll: slow push, slow pull, pan left, pan right.
+- **Optional local transition SFX**, quietly mixed under dialogue when an appropriate user-provided, licensed sound file is present. No downloads or third-party SFX APIs.
 - Original dialogue audio retained; MP4 export; downloadable caption file and JSON edit plan.
 - Single render slot, configurable FFmpeg threads and upload size/clip duration/runtime limits. Whisper weights are released after a job unless configured otherwise.
 - Browser controls to override caption animation and transition per job without changing your preset file.
 
-**Not implemented yet:** manual timeline GUI, human transcript correction, face-aware reframing, full visual image-search B-roll, automatic sound effects, semantic scene understanding beyond basic optional text embeddings, project persistence across restarts, multi-user authentication, and Remotion effects. Actual reel and VPS deployment checks are still required; the code is not a production-certified clone of Captions. Kokoro is available for later voiceover functionality but is not needed for this pipeline.
+**Not implemented yet:** manual timeline GUI, human transcript correction, face-aware reframing, full visual image-search B-roll, advanced automatic sound design, semantic scene understanding beyond basic optional text embeddings, project persistence across restarts, multi-user authentication, and Remotion effects. Actual reel and VPS deployment checks are still required; the code is not a production-certified clone of Captions. Kokoro is available for later voiceover functionality but is not needed for this pipeline.
 
 ## Install on your Ubuntu VPS
 
@@ -30,7 +32,7 @@ ffmpeg -hide_banner -filters | grep subtitles
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-mkdir -p assets/broll assets/fonts data
+mkdir -p assets/broll assets/sfx assets/fonts data
 cp .env.example .env
 # NOTE: the first whisper model download requires internet; after caching it runs locally.
 set -a; source .env; set +a
@@ -53,7 +55,13 @@ Put your licensed video clips or images in `assets/broll/`. Use meaningful under
 - `pregnancy_ultrasound.mp4` matches **pregnancy** or **ultrasound**.
 - `website_design.webp` matches **website** or **design**.
 
-B-roll candidates are scored against spoken phrases and asset tags, using token normalization and domain synonym mappings. Use sidecar files like `kidney_scan.mp4.json` with `{"tags":["renal","kidney"],"description":"A doctor discussing scans"}` to improve accuracy. Clips respect preset-controlled gaps, durations, and transitions. No online asset lookups. If nothing matches, you still get captioned output.
+B-roll candidates are scored against spoken phrases and asset tags, using token normalization and domain synonym mappings. Use sidecar files like `kidney_scan.mp4.json` with `{"tags":["renal","kidney"],"description":"A doctor discussing scans"}` to improve accuracy. Clips are placed at the timestamp of a matching spoken word when one is present; otherwise optional local embedding matches anchor to the phrase emphasis. Clips respect preset-controlled gaps, durations, and transitions. No online asset lookups. If nothing matches, you still get captioned output.
+
+### Optional local transitions SFX and still-image motion
+
+Add your own properly licensed `assets/sfx/soft_whoosh.wav` (or a matching MP3/OGG file; set `sfx_file` accordingly). Presets with `"sfx": true` will automatically include a quiet cutaway whoosh when B-roll exists. If the file is missing, sound effects are silently skipped; speech audio remains intact.
+
+Still-image B-roll can apply `broll_motion` values `slow_push`, `slow_pull`, `pan_left`, `pan_right`, or `none`. Video clips are not artificially zoomed. Use gentle motion to avoid an overedited effect.
 
 ### Motion Graphics / OpenClaw workflow
 
@@ -83,6 +91,10 @@ Set `"broll_match": "ollama"` for selected presets in `presets.json`. The matche
 
 Every named preset is editable in `presets.json`. Set `caption_style`, `transition_style`, `font`, `size`, `primary`, `accent`, `outline`, `caption_position`, `words_per_card`, `grading`, `max_broll`, `broll_duration`, and `min_broll_gap`. The browser offers convenient per-render animation and transition overrides. Start with **Medical Clean** for professional talking heads.
 
+### Automated checks
+
+The repository runs GitHub Actions on pushes and pull requests. The latest expanded suite has **15 passing tests**, covering subtitle generation, word-timed B-roll matching, each transition, still-image zoom/pan and local SFX mixing. These use synthetic media and do not download a Whisper model. Check the latest Actions run after modifying FFmpeg logic.
+
 ### Resource controls
 
 Defaults: 720×1280 render, 180-second max clip, 500 MB max upload, CPU int8 Whisper small, single active render, 2 FFmpeg threads, 900-second FFmpeg timeout. Tune with `.env`. This app does **not** modify existing systemd services or OpenClaw settings. It runs only when started.
@@ -97,13 +109,13 @@ The input video is removed after successful rendering. Outputs stay in `data/` u
 - To run with no network even on first use, pre-populate the model cache.
 - Unlike a transcript-aware LLM editor, emphasis is based on content-word length, and B-roll matching is lexical, not semantic.
 - FFmpeg must have the `subtitles` filter (libass); video filters differ among FFmpeg builds.
-- A VPS deploy and actual rendered reel have **not** yet been verified through this repository.
+- CI has verified 15 tests, including synthetic FFmpeg render, transition, still-image motion, and SFX cases. A VPS deploy and actual user-provided reel have **not** yet been verified.
 
 ## Next milestones
 
 1. Validate an actual 30–40 second reel on the VPS, including all transitions, fonts and timings.
 2. Add a correction timeline and face-safe caption placement.
-3. Add licensed SFX and music with optional audio ducking, plus local image/clip search.
+3. Add a licensed SFX/music library with audio ducking and local visual image/clip search.
 4. Extend the original motion templates with Remotion for animated cards, callouts and premium hook sequences.
 5. Add reusable brand kits, retention cleanup, authorization and resumable job records.
 
