@@ -47,7 +47,7 @@ def music_bed(style:str,destination:Path) -> None:
         sample=(harmonics*.22+bass+beat)*gain
         last=.85*last+.15*sample
         # Soft, non-intrusive output; further ducked beneath dialogue.
-        value=(last*.82+sample*.18)*.62
+        value=(last*.82+sample*.18)*1.30
         # Smooth 100ms on loop endpoints.
         envelope=min(1,t/.1,(LENGTH-t)/.1)
         data.append(int(max(-.90,min(.90,value*envelope))*32767))
