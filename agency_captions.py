@@ -30,8 +30,14 @@ def split_lines(words:list[dict], max_chars:int):
             word=str(w["text"]).strip()
             if not word:
                 continue
-            prospective=" ".join(str(x["text"]).strip() for x in current+[w])
-            if current and len(prospective)>max_chars*2:
+            candidate=current+[w]
+            values=[len(str(x["text"]).strip()) for x in candidate]
+            total=sum(values)+len(values)-1
+            valid=(total<=max_chars or any(
+                sum(values[:j])+j-1<=max_chars and
+                sum(values[j:])+len(values)-j-1<=max_chars
+                for j in range(1,len(values))))
+            if current and not valid:
                 out.append(current)
                 current=[]
             current.append(w)
