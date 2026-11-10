@@ -135,7 +135,7 @@ def paint_frame(cue: dict, width: int, height: int, progress: float):
         if neon or kind == "neon_badge":
             draw.rounded_rectangle((x1, y-26, x2, y+74), radius=17,
                                    fill=(7, 20, 31, 226), outline=accent, width=2)
-            draw.rounded_rectangle((x1+9, y+58, x1 + int((x2-x1-18)*enter), y+63),
+            draw.rounded_rectangle((x1+9, y+58, x1 + 10 + int((x2-x1-28)*enter), y+63),
                                    radius=2, fill=accent)
         f = fit_font(ImageFont, word, True, 43 if neon else 35, x2-x1-28)
         draw.text((width/2, y+15), word, font=f, fill=white, anchor="mm",
