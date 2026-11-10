@@ -59,8 +59,8 @@ def make_subs(words:list[dict],profile:dict,path:Path,width:int=720,
                    "FFF6E3" if is_film else "F9FCFD")
     edge_col=color("EEDDB9" if is_paper else "111B1D")
     bg_col=color("F7EBD1" if is_paper else "111A1D")
-    border=3 if is_paper else 1
-    outline=9 if is_paper else 3
+    border=1
+    outline=1 if is_paper else 3
     shadow=0 if is_paper else 1
     fontname="DejaVu Serif" if is_film else "DejaVu Sans"
     # Subtitles baseline .82 screen height, top cap ~.76, clear of app chrome.
@@ -100,6 +100,35 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     candidates.append((abs(lhs-rhs),i))
             if candidates:
                 cut=min(candidates)[1]
+        # An actual caption plate, not a huge word overlay on the torso.
+        # Keep it within x=.09-.91 and baseline y=.82.
+        if style in ("clinical_box", "paper_tape"):
+            row_length = max((sum(lengths[:cut])+cut-1,
+                              sum(lengths[cut:])+len(segment)-cut-1)
+                             if cut else [sum(lengths)+len(segment)-1])
+            panel_width = min(width*.82, max(width*.19,row_length*font_size*.59+36))
+            panel_height = font_size*(2 if cut else 1)*1.30+20
+            px = int((width-panel_width)/2)
+            rx = int((width+panel_width)/2)
+            bottom = int(height-margin_v+10)
+            top = int(bottom-panel_height)
+            if is_paper:
+                outline_points=(f"m {px} {top} l {rx-8} {top+5} "
+                                f"l {rx} {bottom-3} l {px+6} {bottom}")
+                boxcol=color("FFF0D2")
+                alpha="&H0B&"
+            else:
+                outline_points=(f"m {px+10} {top} l {rx-10} {top} "
+                                f"l {rx} {top+10} l {rx} {bottom-10} "
+                                f"l {rx-10} {bottom} l {px+10} {bottom} "
+                                f"l {px} {bottom-10} l {px} {top+10}")
+                boxcol=color("13252A")
+                alpha="&H29&"
+            lines.append(
+                f"Dialogue: 0,{stamp(start)},{stamp(end)},Main,,0,0,0,,"
+                "{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c"+boxcol+
+                "\\alpha"+alpha+"\\fad(80,100)}"+outline_points
+            )
         def parts(active=None):
             rendered=[]
             for i,w in enumerate(segment):
@@ -111,7 +140,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         token=r"{\alpha&H28&}"+token+r"{\r}"
                 elif i==hero:
                     if is_paper:
-                        token=r"{\b1\c&H005F78A0&}"+token+r"{\r}"
+                        token="{\\b1\\c"+color("A75533")+"}"+token+r"{\\r}"
                     else:
                         token="{\\c"+accent+r"\b1}"+token+r"{\r}"
                 rendered.append(token)
@@ -128,10 +157,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                       if style in ("clinical_box","white_punch") else
                       rf"\fad(140,140)")
             if is_paper:
-                movement+=r"\bord8\shad0"
+                movement+=r"\bord1\shad0"
             if is_film:
                 movement+=r"\fsp1"
-            lines.append(f"Dialogue: 0,{stamp(start)},{stamp(end)},Main,,0,0,0,,{{{movement}}}{parts()}")
+            lines.append(f"Dialogue: 1,{stamp(start)},{stamp(end)},Main,,0,0,0,,{{{movement}}}{parts()}")
         timeline.append({"start":round(start,3),"end":round(end,3),
                          "text":plain,"emphasis":segment[hero]["text"] if hero is not None else None,
                          "caption_style":style})
