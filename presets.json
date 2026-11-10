@@ -20,7 +20,11 @@
     "caption_style": "clean",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_push",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "viral_punch": {
     "name": "Viral Punch",
@@ -43,7 +47,11 @@
     "caption_style": "karaoke",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "medium"
+    "motion_intensity": "medium",
+    "broll_motion": "slow_push",
+    "sfx": true,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "luxury_minimal": {
     "name": "Luxury Minimal",
@@ -66,7 +74,11 @@
     "caption_style": "editorial",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_pull",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "podcast_focus": {
     "name": "Podcast Focus",
@@ -89,7 +101,11 @@
     "caption_style": "word_focus",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_push",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "paper_soft": {
     "name": "Paper Soft",
@@ -112,7 +128,11 @@
     "caption_style": "soft_bounce",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "pan_left",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "cinematic_story": {
     "name": "Cinematic Story",
@@ -135,7 +155,11 @@
     "caption_style": "cinematic",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_pull",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "clinical_karaoke": {
     "name": "Clinical Karaoke",
@@ -158,7 +182,11 @@
     "caption_style": "karaoke",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_push",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "editorial_ink": {
     "name": "Editorial Ink",
@@ -181,7 +209,11 @@
     "caption_style": "editorial",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_push",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "minimal_mono": {
     "name": "Minimal Mono",
@@ -204,7 +236,11 @@
     "caption_style": "lower_third",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_push",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "story_typewriter": {
     "name": "Story Typewriter",
@@ -227,7 +263,11 @@
     "caption_style": "typewriter",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "slow_push",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "impact_words": {
     "name": "Impact Words",
@@ -250,7 +290,11 @@
     "caption_style": "word_focus",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "medium"
+    "motion_intensity": "medium",
+    "broll_motion": "slow_push",
+    "sfx": true,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "neon_glow": {
     "name": "Neon Glow",
@@ -273,7 +317,11 @@
     "caption_style": "glow",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "medium"
+    "motion_intensity": "medium",
+    "broll_motion": "slow_push",
+    "sfx": true,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   },
   "soft_documentary": {
     "name": "Soft Documentary",
@@ -296,6 +344,10 @@
     "caption_style": "lower_third",
     "broll_match": "lexical",
     "transition_style": "soft_fade",
-    "motion_intensity": "subtle"
+    "motion_intensity": "subtle",
+    "broll_motion": "pan_left",
+    "sfx": false,
+    "sfx_file": "soft_whoosh.wav",
+    "sfx_volume": 0.075
   }
 }
