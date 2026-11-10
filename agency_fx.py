@@ -111,7 +111,9 @@ def make_frame(event:dict, progress:float, w=W, h=H):
             d.rounded_rectangle((cx-s,cy-s,cx+s,cy+s),radius=10,
                                 fill=rgba("#FFF7DB",round(225*fade)),
                                 outline=rgba("#7A512E",round(200*fade)),width=3)
-            d.arc((cx-s+7,cy-s+7,cx+s-7,cy+s-7),30,260,fill=rgba(primary,round(250*fade)),width=4)
+            if s >= 9:
+                d.arc((cx-s+7,cy-s+7,cx+s-7,cy+s-7),30,260,
+                      fill=rgba(primary,round(250*fade)),width=4)
     elif kind=="paper_corner":
         # Folded ivory note wipes across top quadrant, not the speaker's captions.
         frac=smooth(min(1,p/.45))
