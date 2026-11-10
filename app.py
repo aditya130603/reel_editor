@@ -328,6 +328,13 @@ def health() -> dict:
     return verify_tools()
 
 
+@app.get("/api/admin/busy")
+def editor_busy() -> dict:
+    # Loopback-only status for the safe self-update timer.
+    with lock:
+        return {"busy": any(j["state"] not in {"completed", "failed"} for j in jobs.values())}
+
+
 @app.get("/api/presets")
 def get_presets() -> dict:
     return presets()
