@@ -45,7 +45,8 @@ a.download{display:inline-block;border-radius:9px;padding:10px 13px;background:#
 <div class="grid"><div><label class="field" for="join">Between-clip transitions</label><select id="join"></select></div>
 <div><label class="field" for="captions">Captions</label><select id="captions"><option value="">Use preset default</option></select></div>
 <div><label class="field" for="title">Big motion words / callouts</label><select id="title"></select></div>
-<div><label class="field" for="music">Music track (optional)</label>
+<div><label class="field" for="library-music">Free local music (optional)</label><select id="library-music"><option value="">No library track</option></select>
+<label class="field" for="music">Or upload music</label>
 <label class="drop" style="padding:10px 6px"><input id="music" type="file" accept=".mp3,.wav,.m4a,.ogg,.flac,audio/*"><small id="musicname">Select locally licensed music</small></label></div>
 </div><label class="field" for="volume">Music volume <span id="volumelabel">12%</span></label>
 <input id="volume" type="range" min="0" max="35" value="12">
@@ -84,7 +85,7 @@ $('videos').onchange=e=>{queue.push(...Array.from(e.target.files));if(queue.leng
 const drop=$('drop');drop.ondragover=e=>{e.preventDefault();drop.style.borderColor='#a0ecd6'};
 drop.ondragleave=()=>drop.style.borderColor='';
 drop.ondrop=e=>{e.preventDefault();drop.style.borderColor='';queue.push(...Array.from(e.dataTransfer.files).filter(f=>/\.(mp4|mov|mkv|webm)$/i.test(f.name)));queue=queue.slice(0,8);refresh()};
-$('music').onchange=e=>{$('musicname').textContent=e.target.files[0]?.name||'Select music'};
+$('music').onchange=e=>{$('musicname').textContent=e.target.files[0]?.name||'Select music';if(e.target.files.length)$('library-music').value=''};
 $('assets').onchange=e=>{$('assetname').textContent=Array.from(e.target.files).map(f=>f.name).join(', ')||'Select B-roll'};
 $('upload-assets').onclick=async()=>{
  const chosen=$('assets').files;if(!chosen.length)return;
@@ -102,9 +103,11 @@ $('upload-assets').onclick=async()=>{
 $('volume').oninput=()=>{$('volumelabel').textContent=$('volume').value+'%'};
 async function init(){
  try{
- const [health,presets,options,assets]=await Promise.all([
-  safeFetch('/api/health'),safeFetch('/api/presets'),safeFetch('/api/studio/options'),safeFetch('/api/assets')]);
+ const [health,presets,options,assets,tracks]=await Promise.all([
+  safeFetch('/api/health'),safeFetch('/api/presets'),safeFetch('/api/studio/options'),safeFetch('/api/assets'),safeFetch('/api/studio/music')]);
  $('asset-count').textContent=assets.length+' licensed B-roll asset(s) available';
+ for(const name of tracks.tracks||[]){const o=document.createElement('option');o.value=name;o.textContent=name.replace(/^anve_cc0_/, '').replace(/_/g,' ');$('library-music').appendChild(o)}
+ $('library-music').onchange=()=>{if($('library-music').value){$('music').value='';$('musicname').textContent='Using library track'}};
  $('health').textContent=health.ready?'Engine ready':'Engine unavailable';
  for(const [key,value] of Object.entries(options.motion_packs||{})){const o=document.createElement('option');o.value=key;o.textContent=value;$('motionpack').appendChild(o)}
  $('motionpack').value='neon_business';
@@ -126,7 +129,7 @@ $('render').onclick=async()=>{
  try{
   const data=new FormData();
   for(const f of queue)data.append('videos',f);
-  const music=$('music').files[0];if(music)data.append('music',music);
+  const music=$('music').files[0];if(music)data.append('music',music);else if($('library-music').value)data.append('music_track',$('library-music').value);
   data.append('preset',preset);data.append('clip_transition',$('join').value);
   data.append('title_effect',$('title').value);data.append('motion_pack',$('motionpack').value);data.append('music_volume',Number($('volume').value)/100);data.append('subject_depth',$('depth').checked);
   if($('captions').value)data.append('caption_style',$('captions').value);
