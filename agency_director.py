@@ -91,6 +91,8 @@ def plan(words: list[dict], duration: float, profile_key: str) -> list[dict]:
     target = 2.2
     index = 0
     events = []
+    graphics_used = 0
+    transitions_used = 0
     while target + 1.5 < duration and len(events) < 16:
         nearby = [w for w in words if abs(float(w.get("start", 0)) - target) <= 1.2
                   and .5 < float(w.get("start", 0)) < duration - 1.7]
@@ -104,8 +106,14 @@ def plan(words: list[dict], duration: float, profile_key: str) -> list[dict]:
         at = min(at, duration - 1.7)
         # A proper edit rhythm, not effects every other frame.
         kind_group = "transition" if index % 3 == 2 else "graphic"
-        pool = cfg["transitions"] if kind_group == "transition" else cfg["graphics"]
-        kind = pool[(index // (3 if kind_group == "transition" else 2)) % len(pool)]
+        if kind_group == "transition":
+            pool = cfg["transitions"]
+            kind = pool[transitions_used % len(pool)]
+            transitions_used += 1
+        else:
+            pool = cfg["graphics"]
+            kind = pool[graphics_used % len(pool)]
+            graphics_used += 1
         if kind == "countdown" and (index < 4 or duration < 28):
             kind = "light_leak"
         text = compact(chosen["text"]).upper() if chosen else ""
