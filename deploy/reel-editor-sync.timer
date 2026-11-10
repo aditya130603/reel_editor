@@ -1,0 +1,10 @@
+[Unit]
+Description=Lightweight Reel Editor GitHub sync check
+[Timer]
+OnBootSec=10min
+OnUnitInactiveSec=10min
+RandomizedDelaySec=30
+Persistent=false
+Unit=reel-editor-sync.service
+[Install]
+WantedBy=timers.target
