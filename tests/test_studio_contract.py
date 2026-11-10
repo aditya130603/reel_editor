@@ -6,7 +6,17 @@ from studio_pipeline import CLIP_TRANSITIONS, TITLE_EFFECTS
 
 class StudioAPIContract(unittest.TestCase):
     def test_editor_root_and_routes_registered(self):
-        paths = {r.path for r in app.app.routes}
+        def discover(routes):
+            found = set()
+            for route in routes:
+                if getattr(route, "path", None):
+                    found.add(route.path)
+                if hasattr(route, "routes"):
+                    found.update(discover(route.routes))
+                if hasattr(route, "router") and hasattr(route.router, "routes"):
+                    found.update(discover(route.router.routes))
+            return found
+        paths = discover(app.app.routes)
         for route in (
             "/", "/api/studio/options", "/api/studio/jobs",
             "/api/studio/assets", "/api/admin/busy", "/api/jobs/{job_id}"
