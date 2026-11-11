@@ -24,16 +24,21 @@ else
     }
     git_safe merge --ff-only "$AFTER"
 fi
-rollback(){
-    echo "Upgrade failed; restoring previous commit" >&2
-    git_safe reset --hard "$BEFORE" || true
+# Do not run git reset --hard on a production checkout after a test error.
+# The service keeps its currently loaded code until the final restart.
+# Preserve the failing checkout for diagnosis and clearly print what happened.
+failed(){
+    echo "Release validation failed. No reel-editor service restart was attempted." >&2
+    echo "Checkout before upgrade: $BEFORE" >&2
+    echo "Checkout now: $(git_safe rev-parse HEAD)" >&2
+    echo "Run: cd /opt/reel_editor && runuser -u reel-editor -- .venv/bin/python -m unittest discover -s tests -v" >&2
 }
-trap rollback ERR
+trap failed ERR
 runuser -u reel-editor -- "$ROOT/.venv/bin/python" -m pip install -r "$ROOT/requirements.txt"
 (cd "$ROOT" && runuser -u reel-editor -- "$ROOT/.venv/bin/python" -m compileall -q \
  app.py studio_routes.py studio_pipeline.py agency_director.py agency_captions.py \
  agency_fx.py agency_sfx.py agency_music.py)
-(cd "$ROOT" && runuser -u reel-editor -- "$ROOT/.venv/bin/python" -m unittest discover -s tests -q)
+(cd "$ROOT" && runuser -u reel-editor -- "$ROOT/.venv/bin/python" -m unittest discover -s tests -v 2>&1 | tee /tmp/reel-editor-upgrade-tests.log)
 trap - ERR
 systemctl restart reel-editor.service
 curl --retry 5 --retry-delay 1 --max-time 6 -fsS http://127.0.0.1:8765/api/health
