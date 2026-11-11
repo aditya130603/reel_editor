@@ -134,9 +134,11 @@ def mix_music(video: Path, music: Path, output: Path,
         "-i", str(video), "-stream_loop", "-1", "-i", str(music),
         "-filter_complex",
         f"[1:a]aresample=48000,volume={volume:.3f}[bed];"
-        "[0:a]aresample=48000[voice];"
-        "[bed][voice]sidechaincompress=threshold=0.035:ratio=6:attack=25:release=280[duck];"
-        "[voice][duck]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]",
+        # FFmpeg output pads are single-consumer: split the speech stream
+        # before using it for both the sidechain detector and the final mix.
+        "[0:a]aresample=48000,asplit=2[voice_main][voice_detector];"
+        "[bed][voice_detector]sidechaincompress=threshold=0.035:ratio=6:attack=25:release=280[duck];"
+        "[voice_main][duck]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]",
         "-map", "0:v:0", "-map", "[mix]", "-c:v", "copy",
         "-c:a", "aac", "-b:a", "160k", "-shortest", str(output)
     ]
